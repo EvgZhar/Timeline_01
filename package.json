@@ -1,0 +1,19 @@
+{
+  "name": "timeline",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @timeline/api\" \"npm run dev -w @timeline/web\"",
+    "build": "npm run build -w @timeline/shared && npm run build -w @timeline/api && npm run build -w @timeline/web",
+    "db:generate": "npm run db:generate -w @timeline/api",
+    "db:migrate": "npm run db:migrate -w @timeline/api",
+    "db:seed": "npm run db:seed -w @timeline/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3"
+  }
+}
