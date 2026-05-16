@@ -1,27 +1,30 @@
 ---
 name: Timeline MVP Build
-overview: "Greenfield build of «История в таймлайне» per the May 2026 spec: monorepo with React/Vite frontend, Express 5 + Drizzle/SQLite backend, REST API, custom SVG timeline, and server-side file uploads. BCE dates deferred but date handling designed for extension."
+overview: "Greenfield build of «История в таймлайне» per the May 2026 spec: monorepo with React/Vite frontend, Express 5 + Drizzle/SQLite backend, REST API, custom SVG timeline, Yandex Disk for attachments, and encrypted app settings storage. BCE dates deferred but date handling designed for extension."
 todos:
   - id: scaffold-monorepo
     content: "Scaffold monorepo: apps/web (Vite React TS Tailwind shadcn), apps/api (Express 5 TS), packages/shared, dev scripts"
     status: pending
   - id: db-schema
-    content: Drizzle schema for all 8 tables + migrations; UserPreferences.visible; cascade rules
+    content: Drizzle schema for spec tables + AppSettings + migrations; UserPreferences.visible; cascade rules
     status: pending
   - id: rest-api
-    content: Implement REST endpoints (timelines, events, tags, documents) with Zod + React Query-friendly DTOs
+    content: REST API timelines/events/tags with Zod + React Query-friendly DTOs (documents in yandex-disk todo)
     status: pending
-  - id: file-upload
-    content: Multer upload to uploads/, static serve, DELETE removes file; URL-only documents supported
+  - id: app-settings
+    content: AppSettings table + encrypted secrets + GET/PUT /api/settings + Yandex config UI (masked values)
+    status: pending
+  - id: yandex-disk
+    content: YandexDiskClient (OAuth, upload/download/delete/publish) + document routes via Disk; test-connection endpoint
     status: pending
   - id: ui-shell
-    content: AppLayout TopBar (~10vh) + Timeline area (~90vh) + slide Sheets + confirm dialogs (RU)
+    content: AppLayout TopBar + Settings sheet (Yandex Disk) + Timeline area + slide Sheets + confirm dialogs (RU)
     status: pending
   - id: timelines-ui
     content: "Timelines side panel: list, visibility, reorder, create form, delete confirm"
     status: pending
   - id: events-ui
-    content: "Event side panel: CRUD form, tags combobox, timeline multiselect, DocumentTable, unsaved guard"
+    content: "Event side panel: CRUD form, date inputs ДД.ММ.ГГГГ, tags combobox, timeline multiselect, DocumentTable, unsaved guard"
     status: pending
   - id: timeline-svg
     content: "Custom SVG timeline: time scale, lanes, events, label collision, connectors, hover preview, pan/zoom"
@@ -34,6 +37,23 @@ isProject: false
 
 # Build plan: «История в таймлайне» MVP
 
+**Last refreshed:** 2026-05-16
+
+## Phase overview
+
+| Phase | Focus | Depends on |
+|-------|--------|------------|
+| 0 | Monorepo, shared package, dev tooling | — |
+| 1 | Drizzle schema (8 spec tables + `AppSettings`) | 0 |
+| 2a | REST API: timelines, events, tags | 1 |
+| 2b | App settings (encrypted) + `/api/settings` | 1 |
+| 2c | Yandex Disk client + documents API | 2a, 2b |
+| 3 | Frontend shell, TopBar, Settings/Timelines/Event sheets | 0 |
+| 4 | Timelines management UI | 2a, 3 |
+| 5 | Event form UI (incl. uploads) | 2c, 3 |
+| 6 | SVG timeline renderer | 4 |
+| 7–8 | Polish, acceptance testing | 5, 6 |
+
 ## Current state
 
 [`Timeline_01`](.) contains only [`LICENSE`](LICENSE). All application code, tooling, and docs must be created from scratch.
@@ -42,8 +62,20 @@ isProject: false
 
 | Topic | Choice |
 |-------|--------|
-| Attachments | **Upload to server** + `StorageLink` (plus optional `OriginalLink`) |
+| Attachments | **Yandex Disk** — files stored on Disk; `StorageLink` = Disk path; optional `OriginalLink` for external URLs |
 | BCE dates | **Not in MVP**; use extensible date types/API so BCE can be added later |
+| File storage backend | **[Yandex Disk REST API](https://yandex.com/dev/disk-api/doc/en/)** (`cloud-api.yandex.net/v1/disk/`), OAuth token configured in app settings |
+
+## Date format convention
+
+| Context | Format | Example |
+|---------|--------|---------|
+| UI display and form input | **`ДД.ММ.ГГГГ`** | `16.05.2026` |
+| API and database storage | **`YYYY-MM-DD`** (ISO 8601) | `2026-05-16` |
+
+All user-facing date fields (event start/end, timeline axis tick labels where applicable) use **`ДД.ММ.ГГГГ`**. Conversion happens only in `packages/shared` (`formatDisplay`, `parseDisplay`, `toStorage`); components must not format dates ad hoc.
+
+---
 
 ## Target architecture
 
@@ -52,20 +84,25 @@ flowchart TB
   subgraph client [Frontend React Vite]
     TopBar[TopBar]
     TimelinePanel[TimelineSVG]
-    SidePanels[SidePanels timelines events]
+    SidePanels[Timelines and Event sheets]
+    SettingsUI[SettingsSheet]
     TopBar --> SidePanels
+    TopBar --> SettingsUI
     TopBar --> TimelinePanel
     SidePanels --> ApiClient
+    SettingsUI --> ApiClient
     TimelinePanel --> ApiClient
   end
   subgraph server [Backend Express 5]
     ApiClient --> Routes
     Routes --> Services
     Services --> Drizzle
-    Routes --> Upload[Multer static uploads]
+    Services --> YandexClient[YandexDiskClient]
+    Services --> SettingsStore[AppSettings encrypted]
   end
   Drizzle --> SQLite[(SQLite)]
-  Upload --> Disk[uploads/]
+  SettingsStore --> SQLite
+  YandexClient --> YandexDisk[(Yandex Disk)]
 ```
 
 ## Recommended repo layout
@@ -80,10 +117,13 @@ Timeline_01/
 │   └── api/                  # Express 5 + TS + Drizzle + Zod
 ├── packages/
 │   └── shared/               # Zod schemas, DTO types, date helpers
-├── drizzle/                  # migrations (or apps/api/drizzle)
-├── uploads/                  # gitignored; served as /uploads/*
+├── apps/api/src/
+│   ├── integrations/yandex-disk/   # Yandex Disk API client
+│   └── services/settings/            # read/write encrypted AppSettings
+├── drizzle/
 ├── data/
-│   └── timeline.db           # gitignored SQLite file
+│   ├── timeline.db           # gitignored SQLite (includes AppSettings)
+│   └── .encryption-key       # optional local key file; prefer env in prod
 └── README.md
 ```
 
@@ -102,13 +142,16 @@ Timeline_01/
    - Zod schemas mirroring spec §3 (timelines, events, links, tags, documents).
    - Shared validation rules: timeline name ≥3 chars; event `endDate >= startDate`; max 10 documents per event.
    - **Date helper module** (`packages/shared/src/dates.ts`):
-     - MVP: ISO `YYYY-MM-DD` strings, `Date` only for display math where year ≥ 1.
+     - **Display/input:** `ДД.ММ.ГГГГ` via `formatDisplay()` / `parseDisplay()` (strict validation, e.g. reject `32.13.2026`).
+     - **Storage/API:** `YYYY-MM-DD` via `toStorage()` / `fromStorage()`.
+     - MVP: `Date` only for timeline math where year ≥ 1.
      - Export `HistoricalDate` interface + parser placeholder for future BCE (e.g. signed year + era enum) so API/UI do not hard-code `new Date(year)` everywhere.
 
 3. **Dev experience**
    - Vite proxy: `/api` → `http://localhost:3001`.
-   - Env: `DATABASE_URL`, `UPLOAD_DIR`, `PORT`.
-   - `.gitignore`: `node_modules`, `dist`, `data/`, `uploads/`, `*.db`.
+   - Env: `DATABASE_URL`, `PORT`, **`SETTINGS_ENCRYPTION_KEY`** (32-byte hex for AES-256-GCM; required in prod).
+   - Optional env fallback for dev only: `YANDEX_DISK_OAUTH_TOKEN` (overridden by DB settings when set).
+   - `.gitignore`: `node_modules`, `dist`, `data/`, `*.db`, `.env`, `.env.local`.
 
 ---
 
@@ -126,18 +169,42 @@ Implement Drizzle schema per spec §3 in [`apps/api/src/db/schema.ts`](apps/api/
 | `DocumentTable` | `resourceType` enum-like string |
 | `DocumentEventLink` | unique `(eventId, documentId)` |
 | `UserPreferences` | MVP: `timelineId` + **`visible: boolean`** (spec requires checkbox visibility; extend table now to avoid rework) |
+| **`AppSettings`** | Key-value app configuration; **secrets stored encrypted** (see below) |
+
+### `AppSettings` table (new)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `key` | varchar, PK | Setting name (e.g. `yandex.oauthToken`) |
+| `value` | text | Plain string for non-secrets |
+| `isSecret` | boolean | If true, `value` is AES-256-GCM ciphertext (iv + tag + payload, base64) |
+| `updatedAt` | timestamptz | Last change |
+
+**Known keys (MVP):**
+
+| Key | Secret? | Purpose |
+|-----|---------|---------|
+| `yandex.oauthToken` | yes | OAuth token (`Authorization: OAuth …`) |
+| `yandex.baseFolder` | no | Root folder on Disk, default `app:/timeline/` |
+| `yandex.clientId` | no | Optional; for OAuth code flow later |
+| `yandex.clientSecret` | yes | Optional; for OAuth code flow later |
+
+**Settings service** ([`apps/api/src/services/settings/settingsService.ts`](apps/api/src/services/settings/settingsService.ts)):
+- `getSettings()` — return all keys; secrets as masked (`••••••••`) or `configured: true`.
+- `putSettings(partial)` — upsert; encrypt when `isSecret`.
+- Never log decrypted secrets; load token only inside `YandexDiskClient`.
 
 **Cascade deletes** (spec §2.1, §2.2):
 - Delete timeline → `EventTimelineLink`, `UserPreferences` for that timeline.
-- Delete event → `EventTimelineLink`, `TagEventLink`, `DocumentEventLink` (documents orphaned unless you add cleanup job; MVP: delete unused documents on event delete).
+- Delete event → `EventTimelineLink`, `TagEventLink`, `DocumentEventLink`; delete linked **DocumentTable** rows and files on Yandex Disk.
 
 Run migrations with `drizzle-kit generate` + `migrate`.
 
 ---
 
-## Phase 2 — REST API (day 2–4)
+## Phase 2 — Backend API (day 2–5)
 
-Implement routes from spec §4.2 with Zod validation on body/query; uniform JSON errors; target &lt;300 ms on local SQLite.
+Implement routes from spec §4.2 with Zod validation on body/query; uniform JSON errors; target &lt;300 ms on local SQLite. Sub-phases **2a** (CRUD), **2b** (settings), **2c** (Yandex Disk) can overlap after Phase 1.
 
 ### Timelines — `/api/timelines`
 
@@ -158,7 +225,18 @@ Add endpoints for MVP UX not in table but required by spec:
 |--------|----------|
 | GET | Query `?timelineId=`; return events with nested `timelines[]`, `tags[]`, `documents[]` (single round-trip for timeline render) |
 | POST/PUT | Transaction: upsert event, replace `EventTimelineLink`, `TagEventLink`, `DocumentEventLink` sets |
-| DELETE | Cascade links; delete orphaned documents + files on disk |
+| DELETE | Cascade links; delete orphaned documents + **files on Yandex Disk** |
+
+### App settings — `/api/settings`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/settings` | All settings (secrets masked) |
+| PUT | `/api/settings` | Partial update `{ settings: Record<string, string \| null> }`; `null` clears a key |
+| POST | `/api/settings/yandex/test` | Verify token + folder access; returns disk quota / folder name |
+| GET | `/api/settings/yandex/status` | `{ configured: boolean, baseFolder: string }` |
+
+First launch: if `yandex.oauthToken` missing, document upload endpoints return `503` with message «Настройте Яндекс.Диск в параметрах».
 
 ### Tags — `/api/tags`
 
@@ -168,12 +246,50 @@ Add endpoints for MVP UX not in table but required by spec:
 
 ### Documents — `/api/documents`
 
-- POST multipart: `multer` → save under `uploads/{uuid}.{ext}`; set `StorageLink`, detect `resourceType` from mime.
-- POST JSON variant for external URL → `OriginalLink` only.
-- GET `?eventId=` — list for event form.
-- DELETE `/:id` — remove DB row + file if `StorageLink` is local.
+Requires configured Yandex Disk (except pure external-URL documents).
 
-Serve static files: `app.use('/uploads', express.static(UPLOAD_DIR))`.
+| Method | Behavior |
+|--------|----------|
+| POST multipart | `multer` memory buffer → `YandexDiskClient.upload(path, buffer)` → `StorageLink` = Disk path (e.g. `app:/timeline/events/{eventId}/{uuid}.jpg`) |
+| POST JSON | External URL → `OriginalLink` only (no Disk upload); optional `upload-by-url` to Disk via [Yandex `resources/upload` from URL](https://yandex.com/dev/disk-api/doc/en/reference/upload-ext) |
+| GET `?eventId=` | List documents; include **`previewUrl`** (short-lived, server-generated) for images |
+| GET `/:id/preview` | Redirect or proxy to Yandex download/publish link (hides OAuth token from browser) |
+| DELETE `/:id` | Delete DB row + `DELETE resources?path=` on Disk if `StorageLink` set |
+
+**`DocumentTable.StorageLink`:** Yandex Disk path (`app:/…` or `disk:/…`), not a public URL.
+
+### Yandex Disk integration — [`apps/api/src/integrations/yandex-disk/`](apps/api/src/integrations/yandex-disk/)
+
+Wrapper over [Yandex Disk REST API](https://yandex.com/dev/disk-api/doc/en/) (`https://cloud-api.yandex.net/v1/disk/`):
+
+| Client method | Yandex API | Use |
+|---------------|------------|-----|
+| `ensureFolder(path)` | `GET resources` / create folder | Ensure `yandex.baseFolder` exists on startup and before upload |
+| `getUploadUrl(path)` | `GET resources/upload` | Obtain temporary PUT URL |
+| `upload(path, body)` | PUT to `href` from upload URL | Store attachment |
+| `getDownloadUrl(path)` | `GET resources/download` | Preview and thumbnails |
+| `publish(path)` | `PUT resources/publish` | Optional public link (prefer server proxy in MVP) |
+| `delete(path)` | `DELETE resources` | Remove file on document/event delete |
+| `getDiskInfo()` | `GET disk/` | Test connection / quota in settings UI |
+
+**Auth:** `Authorization: OAuth <token>` on every request to `cloud-api.yandex.net`. Token obtained manually in MVP (paste in Settings UI); register app at [oauth.yandex.com](https://oauth.yandex.com/) with scopes `cloud_api:disk.read` + `cloud_api:disk.write`.
+
+**Upload flow:**
+
+```mermaid
+sequenceDiagram
+  participant Web
+  participant API
+  participant DB
+  participant Yandex as YandexDiskAPI
+  Web->>API: POST /api/documents multipart
+  API->>DB: load yandex.oauthToken
+  API->>Yandex: GET resources/upload?path=app:/timeline/...
+  Yandex-->>API: href + method PUT
+  API->>Yandex: PUT file bytes to href
+  API->>DB: insert Document StorageLink=path
+  API-->>Web: document + previewUrl
+```
 
 ---
 
@@ -183,7 +299,7 @@ Russian UI strings; min width 1024px (`min-w-[1024px]` on root).
 
 ```text
 ┌──────────────────────────────────────────────┐
-│  TopBar (~10vh): [Временные шкалы] [Добавить] │
+│  TopBar (~10vh): [Временные шкалы] [Добавить] [Настройки] │
 ├──────────────────────────────────────────────┤
 │  TimelineCanvas (~90vh)                      │
 └──────────────────────────────────────────────┘
@@ -194,7 +310,8 @@ Russian UI strings; min width 1024px (`min-w-[1024px]` on root).
 | Component | Responsibility |
 |-----------|----------------|
 | `AppLayout` | 10/90 split, white timeline area, border |
-| `TopBar` | Two buttons; toggles side sheets |
+| `TopBar` | Timelines / Add event / **Settings** buttons; toggles side sheets |
+| `SettingsSheet` | Yandex Disk: OAuth token, base folder, «Проверить подключение»; masked secrets |
 | `TimelinesSheet` | Slide-in left panel (hidden by default) |
 | `EventSheet` | Slide-in right panel (create/edit) |
 | `ConfirmDialog` | shadcn AlertDialog for deletes |
@@ -223,10 +340,10 @@ Wire to API; invalidate `['timelines']` and `['events']` on mutations.
 
 | Field | Implementation |
 |-------|----------------|
-| Name, dates, notes | Controlled inputs; display `ДД.ММ.ГГГГ`, store ISO on submit |
+| Name, dates, notes | Controlled inputs; display and edit **`ДД.ММ.ГГГГ`**; parse to `YYYY-MM-DD` on submit via shared helpers |
 | Tags | Combobox: recent 6, search, create-with-color picker → POST tag |
 | Timelines | Multi-select, min 1 |
-| Documents | `DocumentTable`: preview, description, delete; add URL or file upload (max 10) |
+| Documents | `DocumentTable`: preview via `/api/documents/:id/preview`, description, delete; file upload → Yandex Disk or external URL (max 10) |
 
 Behaviors (spec §5.3):
 - Inline validation on blur.
@@ -246,7 +363,7 @@ Custom **SVG** component [`TimelineCanvas`](apps/web/src/features/timeline/Timel
 [`timeScale.ts`](apps/web/src/features/timeline/timeScale.ts):
 
 - Input: `viewStart`, `viewEnd` (Date or serial day numbers), `width`, `zoom`.
-- Output: pixel `x(date)`, tick marks with **adaptive granularity** (millennia → centuries → decades → years → months).
+- Output: pixel `x(date)`, tick marks with **adaptive granularity** (millennia → centuries → decades → years → months); axis labels formatted as **`ДД.ММ.ГГГГ`** (or `ММ.ГГГГ` / `ГГГГ` when zoomed out).
 - Initial range (spec §2.3):
 
 | Condition | Range |
@@ -298,6 +415,7 @@ Use `requestAnimationFrame` for smooth transforms; avoid re-fetching on pan/zoom
 | LCP ≤ 2s | code-split `EventSheet`; lazy-load timeline; small initial payload |
 | API ≤ 300ms | indexed FK columns; single GET events with joins |
 | Browsers | test Chrome/Firefox/Safari per spec |
+| Date localization | UI **`ДД.ММ.ГГГГ`**; storage ISO `YYYY-MM-DD` (spec §6) |
 | `UserPreferences` | store visibility; optional: persist last zoom in JSON column later (spec §9.6) |
 
 ---
@@ -309,7 +427,8 @@ Manual test checklist mapped to features:
 - [ ] CRUD timelines + reorder + visibility
 - [ ] Create event on timeline; range vs point rendering
 - [ ] Tags on-the-fly + recent 6
-- [ ] Image attachment upload → thumbnail on hover
+- [ ] Image attachment upload to Yandex Disk → thumbnail on hover (via preview API)
+- [ ] Settings UI: save OAuth token, test Yandex Disk connection
 - [ ] Multi-lane vertical layout + lane hover
 - [ ] Pan/zoom + adaptive ticks
 - [ ] Initial date range rules
@@ -321,24 +440,47 @@ Optional: Playwright smoke tests for CRUD + one timeline screenshot.
 
 ## Suggested implementation order (summary)
 
+Dependency graph (replaces Gantt — avoids Mermaid Gantt parser issues with task IDs like `p2b`):
+
 ```mermaid
-gantt
-  title MVP phases
-  dateFormat YYYY-MM-DD
-  section Foundation
-  Monorepo and shared schemas     :p0, 2026-05-16, 1d
-  section Backend
-  Drizzle schema and migrations   :p1, after p0, 1d
-  REST API CRUD                   :p2, after p1, 2d
-  File upload API                 :p3, after p2, 1d
-  section Frontend
-  Layout and sheets               :p4, after p0, 2d
-  Timelines UI                    :p5, after p2, 1d
-  Event form UI                   :p6, after p2, 2d
-  Timeline SVG engine             :p7, after p5, 4d
-  section Finish
-  Polish and acceptance tests     :p8, after p7, 2d
+flowchart TB
+  p0["0 Foundation"]
+  p1["1 DB schema"]
+  p2a["2a REST CRUD"]
+  p2b["2b Settings encrypt"]
+  p2c["2c Yandex Disk API"]
+  p3["3 UI shell"]
+  p4["4 Timelines UI"]
+  p5["5 Event form"]
+  p6["6 Timeline SVG"]
+  p7["7-8 Polish and QA"]
+
+  p0 --> p1
+  p0 --> p3
+  p1 --> p2a
+  p1 --> p2b
+  p2a --> p2c
+  p2b --> p2c
+  p2a --> p4
+  p3 --> p4
+  p2c --> p5
+  p3 --> p5
+  p4 --> p6
+  p5 --> p6
+  p6 --> p7
 ```
+
+**Suggested calendar order** (approximate; parallelize where the graph branches):
+
+1. **0** — Monorepo + `packages/shared` (dates `ДД.ММ.ГГГГ`, Zod schemas)
+2. **1** — Drizzle migrations (all tables)
+3. **2a** + **2b** in parallel — REST CRUD + settings service
+4. **2c** — Yandex Disk client + document routes + preview proxy
+5. **3** in parallel with late **2a** — Layout, TopBar, empty sheets
+6. **4** — Timelines panel wired to API
+7. **5** — Event form + DocumentTable + Settings sheet for Yandex
+8. **6** — Timeline SVG (time scale, lanes, labels, pan/zoom)
+9. **7–8** — Animations, performance, acceptance checklist
 
 ---
 
@@ -354,9 +496,11 @@ gantt
 ## Key technical risks
 
 1. **Label layout + connectors** — budget most timeline time here; start with a fixed test dataset of overlapping events.
-2. **Date extensibility** — centralize all conversions in `packages/shared`; never scatter `new Date('YYYY-MM-DD')` in SVG math without UTC/noon strategy.
-3. **Upload security** — whitelist mime/extensions, size cap, sanitize filenames, no path traversal.
-4. **`UserPreferences` schema** — add `visible` boolean now; spec delete behavior requires it.
+2. **Date extensibility** — centralize all conversions in `packages/shared` (`ДД.ММ.ГГГГ` ↔ `YYYY-MM-DD`); never scatter `new Date(...)` in SVG math without UTC/noon strategy; validate `parseDisplay` strictly.
+3. **Yandex Disk** — token expiry/refresh strategy (MVP: manual re-entry); rate limits; handle 401/507 gracefully in UI.
+4. **Secrets at rest** — `SETTINGS_ENCRYPTION_KEY` required in production; never return raw tokens from GET `/api/settings`; no tokens in client bundle.
+5. **Upload security** — whitelist mime/extensions, size cap; Disk paths generated server-side only (no client-supplied paths).
+6. **`UserPreferences` schema** — add `visible` boolean now; spec delete behavior requires it.
 
 ---
 
