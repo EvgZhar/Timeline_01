@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDisplay, parseDisplay } from "@timeline/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
 
@@ -42,6 +42,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [dirty, setDirty] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+  const initializedRef = useRef(false);
 
   useEffect(() => {
     if (event) {
@@ -52,15 +53,18 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
       setTimelineIds(event.timelines.map((t) => t.id));
       setTagIds(event.tags.map((t) => t.id));
       setDirty(false);
-    } else if (mode === "create") {
+      initializedRef.current = true;
+    } else if (mode === "create" && !initializedRef.current) {
       if (initialDate) setStartDate(initialDate);
       if (initialTimelineId) {
         setTimelineIds([initialTimelineId]);
-      } else if (timelines.length > 0 && timelineIds.length === 0) {
+        initializedRef.current = true;
+      } else if (timelines.length > 0) {
         setTimelineIds([timelines[0].id]);
+        initializedRef.current = true;
       }
     }
-  }, [event, mode, timelines, timelineIds.length, initialDate, initialTimelineId]);
+  }, [event, mode, timelines, initialDate, initialTimelineId]);
 
   const saveMut = useMutation({
     mutationFn: async () => {
