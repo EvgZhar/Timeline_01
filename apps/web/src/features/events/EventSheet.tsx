@@ -7,12 +7,14 @@ import { Sheet } from "@/components/Sheet";
 interface EventSheetProps {
   mode: "create" | "edit";
   eventId?: number;
+  initialDate?: string;
+  initialTimelineId?: number;
   onClose: () => void;
 }
 
 const TAG_COLORS = [0xe11d48, 0x2563eb, 0x16a34a, 0xca8a04, 0x9333ea, 0x0891b2];
 
-export function EventSheet({ mode, eventId, onClose }: EventSheetProps) {
+export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onClose }: EventSheetProps) {
   const qc = useQueryClient();
   const { data: event } = useQuery({
     queryKey: ["event", eventId],
@@ -50,10 +52,15 @@ export function EventSheet({ mode, eventId, onClose }: EventSheetProps) {
       setTimelineIds(event.timelines.map((t) => t.id));
       setTagIds(event.tags.map((t) => t.id));
       setDirty(false);
-    } else if (mode === "create" && timelines.length > 0 && timelineIds.length === 0) {
-      setTimelineIds([timelines[0].id]);
+    } else if (mode === "create") {
+      if (initialDate) setStartDate(initialDate);
+      if (initialTimelineId) {
+        setTimelineIds([initialTimelineId]);
+      } else if (timelines.length > 0 && timelineIds.length === 0) {
+        setTimelineIds([timelines[0].id]);
+      }
     }
-  }, [event, mode, timelines, timelineIds.length]);
+  }, [event, mode, timelines, timelineIds.length, initialDate, initialTimelineId]);
 
   const saveMut = useMutation({
     mutationFn: async () => {

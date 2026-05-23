@@ -33,6 +33,11 @@ export function xForTime(ms: number, range: ViewRange, width: number): number {
   return ((ms - range.startMs) / span) * width;
 }
 
+export function timeForX(x: number, range: ViewRange, width: number): number {
+  const span = range.endMs - range.startMs || 1;
+  return range.startMs + (x / width) * span;
+}
+
 export function formatTick(ms: number, spanYears: number): string {
   const d = new Date(ms);
   if (spanYears > 500) return String(d.getUTCFullYear());

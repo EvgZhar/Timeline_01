@@ -8,9 +8,11 @@ import { TimelineCanvas } from "./features/timeline/TimelineCanvas";
 export default function App() {
   const [timelinesOpen, setTimelinesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [eventSheet, setEventSheet] = useState<{ mode: "create" } | { mode: "edit"; id: number } | null>(
-    null,
-  );
+  const [eventSheet, setEventSheet] = useState<
+    | { mode: "create"; initialDate?: string; initialTimelineId?: number }
+    | { mode: "edit"; id: number }
+    | null
+  >(null);
 
   return (
     <div className="flex min-h-screen min-w-[1024px] flex-col">
@@ -20,7 +22,12 @@ export default function App() {
         onSettings={() => setSettingsOpen(true)}
       />
       <main className="flex-1 overflow-hidden border border-slate-200 bg-white">
-        <TimelineCanvas onEventClick={(id) => setEventSheet({ mode: "edit", id })} />
+        <TimelineCanvas
+          onEventClick={(id) => setEventSheet({ mode: "edit", id })}
+          onEmptyClick={(date, timelineId) =>
+            setEventSheet({ mode: "create", initialDate: date, initialTimelineId: timelineId })
+          }
+        />
       </main>
 
       <TimelinesSheet open={timelinesOpen} onOpenChange={setTimelinesOpen} />
@@ -29,6 +36,8 @@ export default function App() {
         <EventSheet
           mode={eventSheet.mode}
           eventId={eventSheet.mode === "edit" ? eventSheet.id : undefined}
+          initialDate={eventSheet.mode === "create" ? eventSheet.initialDate : undefined}
+          initialTimelineId={eventSheet.mode === "create" ? eventSheet.initialTimelineId : undefined}
           onClose={() => setEventSheet(null)}
         />
       )}

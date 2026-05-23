@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { toDate } from "@timeline/shared";
+import { formatDisplay, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { labelY, layoutLabels } from "./labelLayout";
@@ -7,14 +7,16 @@ import {
   computeInitialRange,
   generateTicks,
   xForTime,
+  timeForX,
   type ViewRange,
 } from "./timeScale";
 
 interface TimelineCanvasProps {
   onEventClick: (eventId: number) => void;
+  onEmptyClick: (date: string, timelineId: number) => void;
 }
 
-export function TimelineCanvas({ onEventClick }: TimelineCanvasProps) {
+export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
@@ -130,6 +132,31 @@ export function TimelineCanvas({ onEventClick }: TimelineCanvasProps) {
         setIsDragging(false);
         setNearAxis(false);
       }}
+      onClick={(e) => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const xRel = e.clientX - rect.left;
+        const yRel = e.clientY - rect.top;
+        if (xRel < padding.left || xRel > padding.left + innerW) return;
+
+        let targetTimelineId: number | null = null;
+        for (let li = 0; li < laneCount; li++) {
+          const y0 = padding.top + li * laneH;
+          const yMid = y0 + laneH / 2;
+          if (Math.abs(yRel - yMid) <= 12) {
+            targetTimelineId = visibleTimelines[li].id;
+            break;
+          }
+        }
+        if (targetTimelineId === null) return;
+
+        const innerX = xRel - padding.left;
+        const ms = timeForX(innerX, effectiveRange, innerW);
+        const d = new Date(Math.round(ms));
+        const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        const displayDate = formatDisplay(iso);
+        onEmptyClick(displayDate, targetTimelineId);
+      }}
     >
       <svg width={size.w} height={size.h} className="select-none">
         <rect width={size.w} height={size.h} fill="white" />
@@ -209,7 +236,10 @@ export function TimelineCanvas({ onEventClick }: TimelineCanvasProps) {
                     key={ev.id}
                     onMouseEnter={() => setHovered(ev.id)}
                     onMouseLeave={() => setHovered(null)}
-                    onClick={() => onEventClick(ev.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEventClick(ev.id);
+                    }}
                     style={{ cursor: "pointer" }}
                   >
                     {isPoint ? (
