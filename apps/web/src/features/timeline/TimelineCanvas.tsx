@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatDisplay, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { assignEventTracks } from "./eventLayout";
+import { assignBarThickness, assignEventTracks } from "./eventLayout";
 import { labelY, layoutLabels } from "./labelLayout";
 import { ZoomControls } from "./ZoomControls";
 import {
@@ -238,6 +238,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
           );
 
           const trackMap = assignEventTracks(laneEvents);
+          const thicknessMap = assignBarThickness(laneEvents, trackMap, effectiveRange, innerW);
 
           return (
             <g key={tl.id}>
@@ -286,6 +287,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                   xForTime(toDate(ev.endDate).getTime(), effectiveRange, innerW);
                 const isPoint = ev.startDate === ev.endDate;
                 const isHover = hovered === ev.id;
+                const isThick = thicknessMap.get(ev.id) === "thick";
                 const label = labels.find((l) => l.id === ev.id);
                 const ly = label ? labelY(label.row, yMid) : yMid - 20;
                 const trackIdx = trackMap.get(ev.id) ?? 0;
@@ -306,7 +308,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                     {isPoint ? (
                       <>
                         <circle cx={x1} cy={eventY} r={12} fill="transparent" />
-                        <circle cx={x1} cy={eventY} r={isHover ? 7 : 5} fill={color} />
+                        <circle cx={x1} cy={eventY} r={isHover ? 7 : (isThick ? 6 : 5)} fill={color} />
                       </>
                     ) : (
                       <>
@@ -319,9 +321,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                         />
                         <rect
                           x={Math.min(x1, x2)}
-                          y={eventY - 4}
+                          y={isThick ? eventY - 6.5 : eventY - 4}
                           width={Math.max(Math.abs(x2 - x1), 4)}
-                          height={8}
+                          height={isThick ? 13 : 8}
                           fill={color}
                           opacity={isHover ? 1 : 0.85}
                         />
@@ -356,25 +358,108 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                         </text>
                       </>
                     )}
-                    {isHover && (() => {
-                      const previewDoc = ev.documents.find((d) => d.isPrimary) ?? ev.documents[0];
-                      return previewDoc?.previewUrl ? (
-                        <image
-                          href={previewDoc.previewUrl}
-                          x={x1 - 50}
-                          y={ly - 110}
-                          width={100}
-                          height={100}
-                          preserveAspectRatio="xMidYMid slice"
-                        />
-                      ) : null;
-                    })()}
                   </g>
                 );
               })}
             </g>
           );
         })}
+        {hovered !== null && (() => {
+          const ev = events.find((e) => e.id === hovered);
+          if (!ev) return null;
+
+          const previewDoc = ev.documents.find((d) => d.isPrimary) ?? ev.documents[0];
+          const imgUrl = previewDoc?.previewUrl;
+
+          const sy = ev.startDate;
+          const ey = ev.endDate;
+          const startParts = sy.split("-");
+          const endParts = ey.split("-");
+          const isEndDec31 = endParts[1] === "12" && endParts[2] === "31";
+          const isEndJan1 = endParts[1] === "01" && endParts[2] === "01";
+          let dateStr = "";
+          if (isEndDec31 || isEndJan1) {
+            dateStr = startParts[0] === endParts[0] ? startParts[0] : `${startParts[0]} - ${endParts[0]}`;
+          } else {
+            dateStr = `${formatDisplay(sy)} - ${formatDisplay(ey)}`;
+          }
+
+          const notes = ev.notes ?? "";
+          const truncated = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
+
+          const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
+          const tlIdx = visibleTimelines.findIndex((tl) => ev.timelines.some((t) => t.id === tl.id));
+          const laneIdx = tlIdx >= 0 ? tlIdx : 0;
+          const yMid = padding.top + laneIdx * laneH + laneH / 2;
+          const ly = yMid - 20;
+
+          const tooltipW = 230;
+          const tooltipH = 115;
+          const tooltipX = Math.max(padding.left + 4, cx - tooltipW / 2);
+          const tooltipY = Math.max(padding.top + 4, ly - tooltipH - 14);
+
+          return (
+            <foreignObject x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH}>
+              <div style={{
+                background: "white",
+                border: "1px solid #d1d5db",
+                borderRadius: "12px",
+                padding: "8px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                fontSize: "12px",
+                lineHeight: 1.4,
+                color: "#1e293b",
+                fontFamily: "system-ui, sans-serif",
+                width: "100%",
+                height: "100%",
+                boxSizing: "border-box",
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+              }}>
+                <div style={{
+                  fontWeight: 600,
+                  fontSize: "12px",
+                  lineHeight: 1.3,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  flexShrink: 0,
+                }}>
+                  {ev.name}
+                </div>
+                <div style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  gap: "8px",
+                  flex: 1,
+                  minHeight: 0,
+                }}>
+                  {imgUrl && (
+                    <img src={imgUrl} style={{
+                      width: "50px",
+                      height: "50px",
+                      objectFit: "cover",
+                      borderRadius: "8px",
+                      flexShrink: 0,
+                    }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "2px" }}>
+                    <div style={{ color: "#475569", wordBreak: "break-word", fontWeight: 600, fontStyle: "italic" }}>
+                      {dateStr}
+                    </div>
+                    {notes && (
+                      <div style={{ color: "#64748b", wordBreak: "break-word", fontSize: "10px" }}>
+                        {truncated}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </foreignObject>
+          );
+        })()}
       </svg>
       <ZoomControls
         onZoomIn={handleZoomIn}
