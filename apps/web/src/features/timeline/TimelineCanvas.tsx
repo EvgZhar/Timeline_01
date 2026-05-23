@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { assignEventTracks } from "./eventLayout";
 import { labelY, layoutLabels } from "./labelLayout";
+import { ZoomControls } from "./ZoomControls";
 import {
   computeInitialRange,
   generateTicks,
@@ -28,9 +29,9 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
-  const [nearAxis, setNearAxis] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ x: number; range: ViewRange } | null>(null);
+  const wasDraggedRef = useRef(false);
 
   const { data: timelines = [] } = useQuery({
     queryKey: ["timelines"],
@@ -91,38 +92,51 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
 
   const ticks = generateTicks(effectiveRange, innerW);
 
-  const checkNearAxis = (clientY: number): boolean => {
-    if (!containerRef.current) return false;
-    const rect = containerRef.current.getBoundingClientRect();
-    const yRel = clientY - rect.top;
-    for (let li = 0; li < laneCount; li++) {
-      const y0 = padding.top + li * laneH;
-      const yMid = y0 + laneH / 2;
-      if (Math.abs(yRel - yMid) <= 12) {
-        return true;
-      }
-    }
-    return false;
+  const zoomFactor = 1.3;
+  const minSpanMs = 30 * 24 * 60 * 60 * 1000;
+
+  const handleZoomIn = () => {
+    const span = effectiveRange.endMs - effectiveRange.startMs;
+    const center = (effectiveRange.startMs + effectiveRange.endMs) / 2;
+    const newSpan = Math.max(span / zoomFactor, minSpanMs);
+    setRange({ startMs: center - newSpan / 2, endMs: center + newSpan / 2 });
+  };
+
+  const handleZoomOut = () => {
+    const span = effectiveRange.endMs - effectiveRange.startMs;
+    const center = (effectiveRange.startMs + effectiveRange.endMs) / 2;
+    setRange({ startMs: center - span * zoomFactor / 2, endMs: center + span * zoomFactor / 2 });
+  };
+
+  const handleScrollBack = () => {
+    const span = effectiveRange.endMs - effectiveRange.startMs;
+    const shift = span * 0.3;
+    setRange({ startMs: effectiveRange.startMs - shift, endMs: effectiveRange.endMs - shift });
+  };
+
+  const handleScrollForward = () => {
+    const span = effectiveRange.endMs - effectiveRange.startMs;
+    const shift = span * 0.3;
+    setRange({ startMs: effectiveRange.startMs + shift, endMs: effectiveRange.endMs + shift });
   };
 
   return (
     <div
       ref={containerRef}
-      className="h-full w-full overflow-hidden"
+      className="relative h-full w-full overflow-hidden"
       style={{
-        cursor: isDragging ? "grabbing" : nearAxis ? "grab" : "default",
+        cursor: isDragging ? "grabbing" : "grab",
       }}
       onWheel={onWheel}
       onMouseDown={(e) => {
-        if (checkNearAxis(e.clientY)) {
-          dragRef.current = { x: e.clientX, range: { ...effectiveRange } };
-          setIsDragging(true);
-        }
+        dragRef.current = { x: e.clientX, range: { ...effectiveRange } };
+        setIsDragging(true);
+        wasDraggedRef.current = false;
       }}
       onMouseMove={(e) => {
-        setNearAxis(checkNearAxis(e.clientY));
         if (!dragRef.current) return;
         const dx = e.clientX - dragRef.current.x;
+        if (Math.abs(dx) > 5) wasDraggedRef.current = true;
         const span = dragRef.current.range.endMs - dragRef.current.range.startMs;
         const msPerPx = span / innerW;
         setRange({
@@ -137,9 +151,9 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
       onMouseLeave={() => {
         dragRef.current = null;
         setIsDragging(false);
-        setNearAxis(false);
       }}
       onClick={(e) => {
+        if (wasDraggedRef.current) return;
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
         const xRel = e.clientX - rect.left;
@@ -341,6 +355,12 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
           );
         })}
       </svg>
+      <ZoomControls
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onScrollBack={handleScrollBack}
+        onScrollForward={handleScrollForward}
+      />
     </div>
   );
 }
