@@ -208,7 +208,24 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
                 fill={hovered && laneEvents.some((e) => e.id === hovered) ? "#eff6ff" : "#fafafa"}
                 stroke="#e2e8f0"
               />
-              <text x={8} y={yMid + 4} fontSize={12} fill="#475569">
+              {tl.iconUrl ? (
+                <image
+                  href={tl.iconUrl}
+                  x={4}
+                  y={yMid - 40}
+                  width={80}
+                  height={80}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              ) : null}
+              <text
+                x={8}
+                y={yMid + (tl.iconUrl ? 50 : 4)}
+                fontSize={14}
+                fontWeight="bold"
+                fill="#0f172a"
+                opacity={0.5}
+              >
                 {tl.name}
               </text>
               <line

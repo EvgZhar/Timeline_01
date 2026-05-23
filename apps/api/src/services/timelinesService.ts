@@ -16,6 +16,7 @@ export async function listTimelines(): Promise<TimelineDto[]> {
     id: t.id,
     name: t.name,
     description: t.description,
+    iconUrl: t.iconUrl,
     sortIndex: t.sortIndex ?? 0,
     visible: prefMap.get(t.id) ?? true,
     createdDateTime: t.createdDateTime,
@@ -39,6 +40,7 @@ export async function createTimeline(name: string, description?: string): Promis
     id: row.id,
     name: row.name,
     description: row.description,
+    iconUrl: row.iconUrl,
     sortIndex: row.sortIndex ?? 0,
     visible: true,
     createdDateTime: row.createdDateTime,
@@ -47,7 +49,7 @@ export async function createTimeline(name: string, description?: string): Promis
 
 export async function updateTimeline(
   id: number,
-  data: { name?: string; description?: string },
+  data: { name?: string; description?: string; iconUrl?: string | null },
 ): Promise<TimelineDto | null> {
   const [row] = await db
     .update(timelineTable)

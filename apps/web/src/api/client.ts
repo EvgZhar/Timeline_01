@@ -27,7 +27,7 @@ export const api = {
     list: () => request<TimelineDto[]>("/api/timelines"),
     create: (body: { name: string; description?: string }) =>
       request<TimelineDto>("/api/timelines", { method: "POST", body: JSON.stringify(body) }),
-    update: (id: number, body: { name?: string; description?: string }) =>
+    update: (id: number, body: { name?: string; description?: string; iconUrl?: string | null }) =>
       request<TimelineDto>(`/api/timelines/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: number) => request<void>(`/api/timelines/${id}`, { method: "DELETE" }),
     setVisibility: (id: number, visible: boolean) =>

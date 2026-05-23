@@ -1,0 +1,1 @@
+ALTER TABLE `TimelineTable` ADD `IconUrl` text;

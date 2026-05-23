@@ -5,6 +5,7 @@ export const timelineTable = sqliteTable("TimelineTable", {
   id: integer("Id").primaryKey({ autoIncrement: true }),
   name: text("Name", { length: 60 }).notNull(),
   description: text("Description", { length: 255 }),
+  iconUrl: text("IconUrl"),
   sortIndex: integer("SortIndex").default(0),
   createdDateTime: text("CreatedDateTime")
     .notNull()

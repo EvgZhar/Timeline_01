@@ -2,6 +2,7 @@ export interface TimelineDto {
   id: number;
   name: string;
   description: string | null;
+  iconUrl: string | null;
   sortIndex: number;
   visible: boolean;
   createdDateTime: string;
