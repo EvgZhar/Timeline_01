@@ -14,6 +14,8 @@ import {
 } from "./timeScale";
 
 interface TimelineCanvasProps {
+  tagFilterIds: number[];
+  tagFilterMode: "and" | "or";
   onEventClick: (eventId: number) => void;
   onEmptyClick: (date: string, timelineId: number) => void;
 }
@@ -24,7 +26,7 @@ function trackColor(idx: number): string {
   return TRACK_COLORS[Math.min(idx, TRACK_COLORS.length - 1)];
 }
 
-export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasProps) {
+export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEmptyClick }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
@@ -205,9 +207,15 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
         {visibleTimelines.map((tl, li) => {
           const y0 = padding.top + li * laneH;
           const yMid = y0 + laneH / 2;
-          const laneEvents = events.filter((ev) =>
-            ev.timelines.some((t) => t.id === tl.id),
-          );
+          const laneEvents = events.filter((ev) => {
+            const inTimeline = ev.timelines.some((t) => t.id === tl.id);
+            if (!inTimeline) return false;
+            if (tagFilterIds.length === 0) return true;
+            const tagIds = ev.tags.map((t) => t.id);
+            return tagFilterMode === "and"
+              ? tagFilterIds.every((id) => tagIds.includes(id))
+              : tagFilterIds.some((id) => tagIds.includes(id));
+          });
 
           const labels = layoutLabels(
             laneEvents.map((ev) => ({
