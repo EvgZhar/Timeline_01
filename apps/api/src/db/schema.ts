@@ -85,6 +85,7 @@ export const documentEventLink = sqliteTable(
     documentId: integer("DocumentId")
       .notNull()
       .references(() => documentTable.documentId, { onDelete: "cascade" }),
+    isPrimary: integer("IsPrimary", { mode: "boolean" }).notNull().default(false),
     createdDateTime: text("CreatedDateTime")
       .notNull()
       .default(sql`(datetime('now'))`),

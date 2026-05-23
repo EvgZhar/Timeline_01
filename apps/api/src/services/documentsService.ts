@@ -39,6 +39,7 @@ export async function listDocuments(eventId: number): Promise<DocumentDto[]> {
       storageLink: documentTable.storageLink,
       resourceType: documentTable.resourceType,
       createdDateTime: documentTable.createdDateTime,
+      isPrimary: documentEventLink.isPrimary,
     })
     .from(documentEventLink)
     .innerJoin(documentTable, eq(documentEventLink.documentId, documentTable.documentId))
@@ -46,7 +47,13 @@ export async function listDocuments(eventId: number): Promise<DocumentDto[]> {
 
   return Promise.all(
     rows.map(async (r) => ({
-      ...r,
+      documentId: r.documentId,
+      description: r.description,
+      originalLink: r.originalLink,
+      storageLink: r.storageLink,
+      resourceType: r.resourceType,
+      isPrimary: r.isPrimary,
+      createdDateTime: r.createdDateTime,
       previewUrl:
         r.storageLink && r.resourceType === "image"
           ? `/api/documents/${r.documentId}/preview`
@@ -69,13 +76,19 @@ export async function createFromUrl(
       resourceType: resourceType ?? "image",
     })
     .returning();
-  await db.insert(documentEventLink).values({ eventId, documentId: doc.documentId });
+
+  const count = await countDocumentsForEvent(eventId);
+  const isPrimary = count === 0;
+
+  await db.insert(documentEventLink).values({ eventId, documentId: doc.documentId, isPrimary });
+
   return {
     documentId: doc.documentId,
     description: doc.description,
     originalLink: doc.originalLink,
     storageLink: doc.storageLink,
     resourceType: doc.resourceType,
+    isPrimary,
     createdDateTime: doc.createdDateTime,
     previewUrl: originalLink,
   };
@@ -105,7 +118,10 @@ export async function createFromUpload(
       resourceType,
     })
     .returning();
-  await db.insert(documentEventLink).values({ eventId, documentId: doc.documentId });
+  const count = await countDocumentsForEvent(eventId);
+  const isPrimary = count === 0;
+
+  await db.insert(documentEventLink).values({ eventId, documentId: doc.documentId, isPrimary });
 
   return {
     documentId: doc.documentId,
@@ -113,6 +129,7 @@ export async function createFromUpload(
     originalLink: doc.originalLink,
     storageLink: doc.storageLink,
     resourceType: doc.resourceType,
+    isPrimary,
     createdDateTime: doc.createdDateTime,
     previewUrl: `/api/documents/${doc.documentId}/preview`,
   };
@@ -128,7 +145,34 @@ export async function getPreviewUrl(documentId: number): Promise<string | null> 
   return doc.originalLink;
 }
 
+export async function setPrimary(documentId: number): Promise<DocumentDto> {
+  const [link] = await db
+    .select({ eventId: documentEventLink.eventId })
+    .from(documentEventLink)
+    .where(eq(documentEventLink.documentId, documentId));
+  if (!link) throw new Error("Документ не привязан к событию");
+
+  await db
+    .update(documentEventLink)
+    .set({ isPrimary: false })
+    .where(eq(documentEventLink.eventId, link.eventId));
+  await db
+    .update(documentEventLink)
+    .set({ isPrimary: true })
+    .where(eq(documentEventLink.documentId, documentId));
+
+  const docs = await listDocuments(link.eventId);
+  const updated = docs.find((d) => d.documentId === documentId);
+  if (!updated) throw new Error("Документ не найден после обновления");
+  return updated;
+}
+
 export async function deleteDocument(documentId: number): Promise<boolean> {
+  const [link] = await db
+    .select({ eventId: documentEventLink.eventId, isPrimary: documentEventLink.isPrimary })
+    .from(documentEventLink)
+    .where(eq(documentEventLink.documentId, documentId));
+
   const [doc] = await db
     .select()
     .from(documentTable)
@@ -142,6 +186,14 @@ export async function deleteDocument(documentId: number): Promise<boolean> {
     }
   }
   const r = await db.delete(documentTable).where(eq(documentTable.documentId, documentId));
+  const wasPrimary = link?.isPrimary;
+  const eventId = link?.eventId;
+  if (wasPrimary && eventId) {
+    const remaining = await listDocuments(eventId);
+    if (remaining.length > 0) {
+      await setPrimary(remaining[0].documentId);
+    }
+  }
   return r.changes > 0;
 }
 

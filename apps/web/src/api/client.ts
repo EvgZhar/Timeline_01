@@ -1,4 +1,5 @@
 import type {
+  DocumentDto,
   EventDto,
   SettingsDto,
   TagDto,
@@ -59,6 +60,24 @@ export const api = {
     recent: () => request<TagDto[]>("/api/tags/recent"),
     create: (body: { name: string; color: number }) =>
       request<TagDto>("/api/tags", { method: "POST", body: JSON.stringify(body) }),
+  },
+  documents: {
+    list: (eventId: number) =>
+      request<DocumentDto[]>(`/api/documents?eventId=${eventId}`),
+    createFromUrl: (body: {
+      eventId: number;
+      description: string;
+      originalLink: string;
+      resourceType?: string;
+    }) =>
+      request<DocumentDto>("/api/documents", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    delete: (id: number) =>
+      request<void>(`/api/documents/${id}`, { method: "DELETE" }),
+    setPrimary: (id: number) =>
+      request<DocumentDto>(`/api/documents/${id}/primary`, { method: "PATCH" }),
   },
   settings: {
     get: () => request<SettingsDto>("/api/settings"),

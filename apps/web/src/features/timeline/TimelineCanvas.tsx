@@ -356,16 +356,19 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                         </text>
                       </>
                     )}
-                    {isHover && ev.documents[0]?.previewUrl && (
-                      <image
-                        href={ev.documents[0].previewUrl}
-                        x={x1 - 50}
-                        y={ly - 110}
-                        width={100}
-                        height={100}
-                        preserveAspectRatio="xMidYMid slice"
-                      />
-                    )}
+                    {isHover && (() => {
+                      const previewDoc = ev.documents.find((d) => d.isPrimary) ?? ev.documents[0];
+                      return previewDoc?.previewUrl ? (
+                        <image
+                          href={previewDoc.previewUrl}
+                          x={x1 - 50}
+                          y={ly - 110}
+                          width={100}
+                          height={100}
+                          preserveAspectRatio="xMidYMid slice"
+                        />
+                      ) : null;
+                    })()}
                   </g>
                 );
               })}

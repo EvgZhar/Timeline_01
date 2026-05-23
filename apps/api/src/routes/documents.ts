@@ -77,6 +77,15 @@ documentsRouter.post("/", upload.single("file"), async (req, res, next) => {
   }
 });
 
+documentsRouter.patch("/:id/primary", async (req, res, next) => {
+  try {
+    const doc = await svc.setPrimary(Number(req.params.id));
+    res.json(doc);
+  } catch (e) {
+    next(e);
+  }
+});
+
 documentsRouter.delete("/:id", async (req, res, next) => {
   try {
     const ok = await svc.deleteDocument(Number(req.params.id));

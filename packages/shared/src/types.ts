@@ -21,6 +21,7 @@ export interface DocumentDto {
   originalLink: string | null;
   storageLink: string | null;
   resourceType: string | null;
+  isPrimary: boolean;
   previewUrl?: string;
   createdDateTime: string;
 }

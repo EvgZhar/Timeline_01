@@ -23,6 +23,7 @@ async function loadEventRelations(eventIds: number[]): Promise<{
       originalLink: string | null;
       storageLink: string | null;
       resourceType: string | null;
+      isPrimary: boolean;
       createdDateTime: string;
     }[]
   >;
@@ -54,6 +55,7 @@ async function loadEventRelations(eventIds: number[]): Promise<{
             originalLink: documentTable.originalLink,
             storageLink: documentTable.storageLink,
             resourceType: documentTable.resourceType,
+            isPrimary: documentEventLink.isPrimary,
             createdDateTime: documentTable.createdDateTime,
           })
           .from(documentEventLink)
@@ -107,7 +109,12 @@ function toDto(
       originalLink: d.originalLink,
       storageLink: d.storageLink,
       resourceType: d.resourceType,
+      isPrimary: d.isPrimary,
       createdDateTime: d.createdDateTime,
+      previewUrl:
+        d.storageLink && d.resourceType === "image"
+          ? `/api/documents/${d.documentId}/preview`
+          : d.originalLink ?? undefined,
     })),
   };
 }
