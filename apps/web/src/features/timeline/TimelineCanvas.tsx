@@ -19,6 +19,8 @@ export function TimelineCanvas({ onEventClick }: TimelineCanvasProps) {
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
+  const [nearAxis, setNearAxis] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ x: number; range: ViewRange } | null>(null);
 
   const { data: timelines = [] } = useQuery({
@@ -80,15 +82,36 @@ export function TimelineCanvas({ onEventClick }: TimelineCanvasProps) {
 
   const ticks = generateTicks(effectiveRange, innerW);
 
+  const checkNearAxis = (clientY: number): boolean => {
+    if (!containerRef.current) return false;
+    const rect = containerRef.current.getBoundingClientRect();
+    const yRel = clientY - rect.top;
+    for (let li = 0; li < laneCount; li++) {
+      const y0 = padding.top + li * laneH;
+      const yMid = y0 + laneH / 2;
+      if (Math.abs(yRel - yMid) <= 12) {
+        return true;
+      }
+    }
+    return false;
+  };
+
   return (
     <div
       ref={containerRef}
-      className="h-full w-full cursor-grab overflow-hidden active:cursor-grabbing"
+      className="h-full w-full overflow-hidden"
+      style={{
+        cursor: isDragging ? "grabbing" : nearAxis ? "grab" : "default",
+      }}
       onWheel={onWheel}
       onMouseDown={(e) => {
-        dragRef.current = { x: e.clientX, range: { ...effectiveRange } };
+        if (checkNearAxis(e.clientY)) {
+          dragRef.current = { x: e.clientX, range: { ...effectiveRange } };
+          setIsDragging(true);
+        }
       }}
       onMouseMove={(e) => {
+        setNearAxis(checkNearAxis(e.clientY));
         if (!dragRef.current) return;
         const dx = e.clientX - dragRef.current.x;
         const span = dragRef.current.range.endMs - dragRef.current.range.startMs;
@@ -100,9 +123,12 @@ export function TimelineCanvas({ onEventClick }: TimelineCanvasProps) {
       }}
       onMouseUp={() => {
         dragRef.current = null;
+        setIsDragging(false);
       }}
       onMouseLeave={() => {
         dragRef.current = null;
+        setIsDragging(false);
+        setNearAxis(false);
       }}
     >
       <svg width={size.w} height={size.h} className="select-none">
