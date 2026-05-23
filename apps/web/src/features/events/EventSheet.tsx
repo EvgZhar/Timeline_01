@@ -3,6 +3,7 @@ import { formatDisplay, parseDisplay } from "@timeline/shared";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
+import { DatePickerField } from "@/components/DatePickerField";
 
 interface EventSheetProps {
   mode: "create" | "edit";
@@ -117,14 +118,24 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
           Наименование
           <input className="mt-1 w-full rounded border px-2 py-1" value={name} onChange={(e) => setName(e.target.value)} />
         </label>
-        <label className="block text-sm">
-          Дата начала (ДД.ММ.ГГГГ)
-          <input className="mt-1 w-full rounded border px-2 py-1" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </label>
-        <label className="block text-sm">
-          Дата окончания
-          <input className="mt-1 w-full rounded border px-2 py-1" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-        </label>
+        <DatePickerField
+          label="Дата начала (ДД.ММ.ГГГГ)"
+          value={startDate}
+          onChange={(v) => {
+            setStartDate(v);
+            setDirty(true);
+          }}
+          placeholder="ДД.ММ.ГГГГ"
+        />
+        <DatePickerField
+          label="Дата окончания"
+          value={endDate}
+          onChange={(v) => {
+            setEndDate(v);
+            setDirty(true);
+          }}
+          placeholder="ДД.ММ.ГГГГ"
+        />
         <label className="block text-sm">
           Описание
           <textarea className="mt-1 w-full rounded border px-2 py-1" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
