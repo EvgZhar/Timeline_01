@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatDisplay, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
+import { assignEventTracks } from "./eventLayout";
 import { labelY, layoutLabels } from "./labelLayout";
 import {
   computeInitialRange,
@@ -14,6 +15,12 @@ import {
 interface TimelineCanvasProps {
   onEventClick: (eventId: number) => void;
   onEmptyClick: (date: string, timelineId: number) => void;
+}
+
+const TRACK_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"];
+
+function trackColor(idx: number): string {
+  return TRACK_COLORS[Math.min(idx, TRACK_COLORS.length - 1)];
 }
 
 export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasProps) {
@@ -198,6 +205,8 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
             })),
           );
 
+          const trackMap = assignEventTracks(laneEvents);
+
           return (
             <g key={tl.id}>
               <rect
@@ -247,6 +256,9 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
                 const isHover = hovered === ev.id;
                 const label = labels.find((l) => l.id === ev.id);
                 const ly = label ? labelY(label.row, yMid) : yMid - 20;
+                const trackIdx = trackMap.get(ev.id) ?? 0;
+                const eventY = yMid + trackIdx * 14;
+                const color = trackColor(trackIdx);
 
                 return (
                   <g
@@ -261,25 +273,25 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
                   >
                     {isPoint ? (
                       <>
-                        <circle cx={x1} cy={yMid} r={16} fill="transparent" />
-                        <circle cx={x1} cy={yMid} r={isHover ? 7 : 5} fill="#2563eb" />
+                        <circle cx={x1} cy={eventY} r={12} fill="transparent" />
+                        <circle cx={x1} cy={eventY} r={isHover ? 7 : 5} fill={color} />
                       </>
                     ) : (
                       <>
                         <rect
                           x={Math.min(x1, x2)}
-                          y={yMid - 18}
+                          y={eventY - 7}
                           width={Math.max(Math.abs(x2 - x1), 4)}
-                          height={36}
+                          height={14}
                           fill="transparent"
                         />
                         <rect
                           x={Math.min(x1, x2)}
-                          y={yMid - 4}
+                          y={eventY - 4}
                           width={Math.max(Math.abs(x2 - x1), 4)}
                           height={8}
-                          fill="#2563eb"
-                          opacity={0.85}
+                          fill={color}
+                          opacity={isHover ? 1 : 0.85}
                         />
                       </>
                     )}
@@ -287,7 +299,7 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
                       <>
                         <line
                           x1={x1}
-                          y1={yMid}
+                          y1={eventY}
                           x2={x1}
                           y2={ly + 12}
                           stroke="#94a3b8"

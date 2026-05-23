@@ -96,7 +96,8 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
       if (mode === "edit" && eventId) return api.events.update(eventId, body);
       return api.events.create(body);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      qc.setQueryData(["event", data.id], data);
       qc.invalidateQueries({ queryKey: ["events"] });
       onClose();
     },
