@@ -28,6 +28,18 @@ function trackColor(idx: number): string {
   return TRACK_COLORS[Math.min(idx, TRACK_COLORS.length - 1)];
 }
 
+function lightenColor(hex: string, mix: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const toHex = (n: number) => Math.round(n).toString(16).padStart(2, "0");
+  return `#${[
+    r + (255 - r) * mix,
+    g + (255 - g) * mix,
+    b + (255 - b) * mix,
+  ].map(toHex).join("")}`;
+}
+
 export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEmptyClick, initialRange, onRangeChange }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 600 });
@@ -192,6 +204,14 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
       }}
     >
       <svg width={size.w} height={size.h} className="select-none">
+        <defs>
+          {TRACK_COLORS.map((color, i) => (
+            <linearGradient key={i} id={`rangeGrad-${i}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor={color} />
+              <stop offset="100%" stopColor={lightenColor(color, 0.45)} />
+            </linearGradient>
+          ))}
+        </defs>
         <rect width={size.w} height={size.h} fill="white" />
         {ticks.map((t, i) => (
           <g key={i}>
@@ -321,10 +341,10 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                         />
                         <rect
                           x={Math.min(x1, x2)}
-                          y={isThick ? eventY - 6.5 : eventY - 4}
+                          y={isThick ? eventY - 5 : eventY - 4}
                           width={Math.max(Math.abs(x2 - x1), 4)}
-                          height={isThick ? 13 : 8}
-                          fill={color}
+                          height={isThick ? 10 : 8}
+                          fill={`url(#rangeGrad-${trackIdx})`}
                           opacity={isHover ? 1 : 0.85}
                         />
                       </>

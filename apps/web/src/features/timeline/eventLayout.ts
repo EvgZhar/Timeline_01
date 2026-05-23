@@ -41,13 +41,18 @@ export function assignBarThickness(
 ): Map<number, "normal" | "thick"> {
   const THRESHOLD = 5;
   const result = new Map<number, "normal" | "thick">();
-  const trackGroups = new Map<number, { id: number; x: number }[]>();
+  const trackGroups = new Map<number, { id: number; startX: number; endX: number }[]>();
 
   for (const ev of events) {
     const trackIdx = trackMap.get(ev.id) ?? 0;
     if (!trackGroups.has(trackIdx)) trackGroups.set(trackIdx, []);
-    const x = xForTime(toDate(ev.startDate).getTime(), range, width);
-    trackGroups.get(trackIdx)!.push({ id: ev.id, x });
+    const startMs = toDate(ev.startDate).getTime();
+    const endMs = toDate(ev.endDate).getTime();
+    trackGroups.get(trackIdx)!.push({
+      id: ev.id,
+      startX: xForTime(startMs, range, width),
+      endX: xForTime(endMs, range, width),
+    });
   }
 
   for (const [, group] of trackGroups) {
@@ -55,12 +60,12 @@ export function assignBarThickness(
       if (group.length === 1) result.set(group[0].id, "normal");
       continue;
     }
-    group.sort((a, b) => a.x - b.x);
+    group.sort((a, b) => a.startX - b.startX);
 
     let clusterStart = 0;
     for (let i = 1; i <= group.length; i++) {
       const isLast = i === group.length;
-      const gap = isLast ? Infinity : group[i].x - group[i - 1].x;
+      const gap = isLast ? Infinity : group[i].startX - group[i - 1].endX;
 
       if (gap > THRESHOLD || isLast) {
         const cluster = group.slice(clusterStart, i);
