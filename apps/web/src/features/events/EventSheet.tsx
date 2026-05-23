@@ -427,18 +427,24 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
             Наименование
             <input className="mt-1 w-full rounded border px-2 py-1" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          <DatePickerField
-            label="Дата начала (ДД.ММ.ГГГГ)"
-            value={startDate}
-            onChange={(v) => setStartDate(v)}
-            placeholder="ДД.ММ.ГГГГ"
-          />
-          <DatePickerField
-            label="Дата окончания"
-            value={endDate}
-            onChange={(v) => setEndDate(v)}
-            placeholder="ДД.ММ.ГГГГ"
-          />
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <DatePickerField
+                label="Дата начала"
+                value={startDate}
+                onChange={(v) => setStartDate(v)}
+                placeholder="ДД.ММ.ГГГГ"
+              />
+            </div>
+            <div className="flex-1">
+              <DatePickerField
+                label="Дата окончания"
+                value={endDate}
+                onChange={(v) => setEndDate(v)}
+                placeholder="ДД.ММ.ГГГГ"
+              />
+            </div>
+          </div>
           <label className="block text-sm">
             Описание
             <textarea className="mt-1 w-full rounded border px-2 py-1" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -558,18 +564,24 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
             Наименование
             <input className="mt-1 w-full rounded border px-2 py-1" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          <DatePickerField
-            label="Дата начала (ДД.ММ.ГГГГ)"
-            value={startDate}
-            onChange={(v) => setStartDate(v)}
-            placeholder="ДД.ММ.ГГГГ"
-          />
-          <DatePickerField
-            label="Дата окончания"
-            value={endDate}
-            onChange={(v) => setEndDate(v)}
-            placeholder="ДД.ММ.ГГГГ"
-          />
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <DatePickerField
+                label="Дата начала"
+                value={startDate}
+                onChange={(v) => setStartDate(v)}
+                placeholder="ДД.ММ.ГГГГ"
+              />
+            </div>
+            <div className="flex-1">
+              <DatePickerField
+                label="Дата окончания"
+                value={endDate}
+                onChange={(v) => setEndDate(v)}
+                placeholder="ДД.ММ.ГГГГ"
+              />
+            </div>
+          </div>
           <label className="block text-sm">
             Описание
             <textarea className="mt-1 w-full rounded border px-2 py-1" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />

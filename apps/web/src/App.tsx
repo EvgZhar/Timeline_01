@@ -56,6 +56,16 @@ export default function App() {
           setViewRange(parsed as ViewRange);
       } catch { /* ignore */ }
     }
+
+    const rawLastEvent = settings.settings["ui.lastEditedEventId"];
+    if (typeof rawLastEvent === "string") {
+      try {
+        const id = JSON.parse(rawLastEvent);
+        if (typeof id === "number" && id > 0) {
+          setEventSheet({ mode: "edit", id });
+        }
+      } catch { /* ignore */ }
+    }
   }, [settings]);
 
   // Save tag filters on change (after initial load)
@@ -69,6 +79,13 @@ export default function App() {
     }, 300);
     return () => clearTimeout(saveTimerRef.current);
   }, [tagFilterIds, tagFilterMode, qc]);
+
+  // Save last edited event ID
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    const val = eventSheet?.mode === "edit" ? JSON.stringify(eventSheet.id) : null;
+    api.settings.put({ "ui.lastEditedEventId": val });
+  }, [eventSheet]);
 
   // Save view range on change (debounced)
   const handleRangeChange = useCallback((range: ViewRange) => {
