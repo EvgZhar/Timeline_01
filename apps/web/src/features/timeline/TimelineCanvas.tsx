@@ -18,6 +18,8 @@ interface TimelineCanvasProps {
   tagFilterMode: "and" | "or";
   onEventClick: (eventId: number) => void;
   onEmptyClick: (date: string, timelineId: number) => void;
+  initialRange?: ViewRange | null;
+  onRangeChange?: (range: ViewRange) => void;
 }
 
 const TRACK_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"];
@@ -26,7 +28,7 @@ function trackColor(idx: number): string {
   return TRACK_COLORS[Math.min(idx, TRACK_COLORS.length - 1)];
 }
 
-export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEmptyClick }: TimelineCanvasProps) {
+export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEmptyClick, initialRange, onRangeChange }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
@@ -51,10 +53,18 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
 
   const effectiveRange = useMemo(() => {
     if (range) return range;
+    if (initialRange) return initialRange;
     return computeInitialRange(
       events.map((e) => ({ start: e.startDate, end: e.endDate })),
     );
-  }, [range, events]);
+  }, [range, initialRange, events]);
+
+  // Notify parent when user changes the range
+  useEffect(() => {
+    if (range && onRangeChange) {
+      onRangeChange(range);
+    }
+  }, [range, onRangeChange]);
 
   const padding = { left: 48, right: 24, top: 48, bottom: 48 };
   const innerW = size.w - padding.left - padding.right;

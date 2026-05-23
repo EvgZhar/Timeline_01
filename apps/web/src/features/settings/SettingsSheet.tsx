@@ -1,18 +1,42 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDisplay } from "@timeline/shared";
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
+import type { ViewRange } from "@/features/timeline/timeScale";
 
 interface SettingsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  savedViewRange?: ViewRange | null;
+  savedTagFilterIds?: number[];
+  savedTagFilterMode?: "and" | "or";
+  onClearSettings?: () => void;
 }
 
-export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
+function msToDisplay(ms: number): string {
+  const d = new Date(ms);
+  const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  return formatDisplay(iso);
+}
+
+export function SettingsSheet({
+  open,
+  onOpenChange,
+  savedViewRange,
+  savedTagFilterIds,
+  savedTagFilterMode,
+  onClearSettings,
+}: SettingsSheetProps) {
   const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["settings"],
     queryFn: api.settings.get,
+    enabled: open,
+  });
+  const { data: allTimelines = [] } = useQuery({
+    queryKey: ["timelines"],
+    queryFn: api.timelines.list,
     enabled: open,
   });
   const [token, setToken] = useState("");
@@ -47,6 +71,12 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
   const tokenConfigured =
     data?.settings["yandex.oauthToken"] &&
     typeof data.settings["yandex.oauthToken"] === "object";
+
+  const visibleTimelinesCount = allTimelines.filter((t) => t.visible).length;
+
+  const hasSavedSettings = Boolean(
+    savedViewRange || (savedTagFilterIds && savedTagFilterIds.length > 0),
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange} side="right" title="Настройки">
@@ -90,6 +120,45 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
           </button>
         </div>
         {testResult && <p className="text-sm text-slate-600">{testResult}</p>}
+      </section>
+
+      <hr className="my-4 border-slate-200" />
+
+      <section className="space-y-3">
+        <h3 className="font-medium">Интерфейс</h3>
+
+        <div className="text-sm">
+          <span className="text-slate-500">Видимые таймлайны:</span>{" "}
+          {visibleTimelinesCount} из {allTimelines.length}
+        </div>
+
+        {savedViewRange && (
+          <div className="text-sm">
+            <span className="text-slate-500">Период отображения:</span>
+            <div className="mt-0.5 rounded bg-slate-50 px-2 py-1 text-xs text-slate-600">
+              {msToDisplay(savedViewRange.startMs)} — {msToDisplay(savedViewRange.endMs)}
+            </div>
+          </div>
+        )}
+
+        {savedTagFilterIds && savedTagFilterIds.length > 0 && (
+          <div className="text-sm">
+            <span className="text-slate-500">Активные тэги:</span>
+            <div className="mt-0.5 text-xs text-slate-600">
+              {savedTagFilterIds.length} шт., режим «{savedTagFilterMode === "and" ? "И" : "Или"}»
+            </div>
+          </div>
+        )}
+
+        {hasSavedSettings && onClearSettings && (
+          <button
+            type="button"
+            className="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
+            onClick={onClearSettings}
+          >
+            Очистить сохранённые настройки
+          </button>
+        )}
       </section>
     </Sheet>
   );
