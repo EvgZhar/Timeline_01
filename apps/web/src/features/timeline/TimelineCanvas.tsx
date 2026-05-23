@@ -260,16 +260,28 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
                     style={{ cursor: "pointer" }}
                   >
                     {isPoint ? (
-                      <circle cx={x1} cy={yMid} r={isHover ? 7 : 5} fill="#2563eb" />
+                      <>
+                        <circle cx={x1} cy={yMid} r={16} fill="transparent" />
+                        <circle cx={x1} cy={yMid} r={isHover ? 7 : 5} fill="#2563eb" />
+                      </>
                     ) : (
-                      <rect
-                        x={Math.min(x1, x2)}
-                        y={yMid - 4}
-                        width={Math.max(Math.abs(x2 - x1), 4)}
-                        height={8}
-                        fill="#2563eb"
-                        opacity={0.85}
-                      />
+                      <>
+                        <rect
+                          x={Math.min(x1, x2)}
+                          y={yMid - 18}
+                          width={Math.max(Math.abs(x2 - x1), 4)}
+                          height={36}
+                          fill="transparent"
+                        />
+                        <rect
+                          x={Math.min(x1, x2)}
+                          y={yMid - 4}
+                          width={Math.max(Math.abs(x2 - x1), 4)}
+                          height={8}
+                          fill="#2563eb"
+                          opacity={0.85}
+                        />
+                      </>
                     )}
                     {label && (
                       <>
@@ -280,6 +292,13 @@ export function TimelineCanvas({ onEventClick, onEmptyClick }: TimelineCanvasPro
                           y2={ly + 12}
                           stroke="#94a3b8"
                           strokeWidth={isHover ? 2 : 1}
+                        />
+                        <rect
+                          x={x1 - 60}
+                          y={ly - 10}
+                          width={120}
+                          height={20}
+                          fill="transparent"
                         />
                         <text
                           x={x1}

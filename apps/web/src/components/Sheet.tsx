@@ -7,14 +7,16 @@ interface SheetProps {
   side?: "left" | "right";
   title: string;
   children: ReactNode;
+  footer?: ReactNode;
 }
 
 export function Sheet({
   open,
   onOpenChange,
   side = "left",
-  title,
+    title,
   children,
+  footer,
 }: SheetProps) {
   useEffect(() => {
     if (!open) return;
@@ -52,6 +54,9 @@ export function Sheet({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-4">{children}</div>
+        {footer && (
+          <div className="border-t border-slate-200 px-4 py-3">{footer}</div>
+        )}
       </aside>
     </>
   );
