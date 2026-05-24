@@ -45,6 +45,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ x: number; range: ViewRange } | null>(null);
   const wasDraggedRef = useRef(false);
@@ -91,7 +92,10 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
       setSize({ w: width, h: height });
     });
     ro.observe(node);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
   }, []);
 
   const onWheel = (e: React.WheelEvent) => {
@@ -315,30 +319,36 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                 const color = trackColor(trackIdx);
 
                 return (
-                  <g
-                    key={ev.id}
-                    onMouseEnter={() => setHovered(ev.id)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEventClick(ev.id);
-                    }}
-                    style={{ cursor: "pointer" }}
-                  >
+                  <g key={ev.id}>
                     {isPoint ? (
                       <>
-                        <circle cx={x1} cy={eventY} r={12} fill="transparent" />
                         <circle cx={x1} cy={eventY} r={isHover ? 7 : (isThick ? 6 : 5)} fill={color} />
+                        <circle
+                          cx={x1}
+                          cy={eventY}
+                          r={12}
+                          fill="transparent"
+                          style={{ cursor: "pointer" }}
+                          onMouseEnter={() => {
+                            if (hoverTimeoutRef.current) {
+                              clearTimeout(hoverTimeoutRef.current);
+                              hoverTimeoutRef.current = null;
+                            }
+                            setHovered(ev.id);
+                          }}
+                          onMouseLeave={() => {
+                            hoverTimeoutRef.current = setTimeout(() => {
+                              setHovered(null);
+                            }, 150);
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEventClick(ev.id);
+                          }}
+                        />
                       </>
                     ) : (
                       <>
-                        <rect
-                          x={Math.min(x1, x2)}
-                          y={eventY - 7}
-                          width={Math.max(Math.abs(x2 - x1), 4)}
-                          height={14}
-                          fill="transparent"
-                        />
                         <rect
                           x={Math.min(x1, x2)}
                           y={isThick ? eventY - 5 : eventY - 4}
@@ -346,6 +356,30 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                           height={isThick ? 10 : 8}
                           fill={`url(#rangeGrad-${trackIdx})`}
                           opacity={isHover ? 1 : 0.85}
+                        />
+                        <rect
+                          x={Math.min(x1, x2)}
+                          y={eventY - 7}
+                          width={Math.max(Math.abs(x2 - x1), 4)}
+                          height={14}
+                          fill="transparent"
+                          style={{ cursor: "pointer" }}
+                          onMouseEnter={() => {
+                            if (hoverTimeoutRef.current) {
+                              clearTimeout(hoverTimeoutRef.current);
+                              hoverTimeoutRef.current = null;
+                            }
+                            setHovered(ev.id);
+                          }}
+                          onMouseLeave={() => {
+                            hoverTimeoutRef.current = setTimeout(() => {
+                              setHovered(null);
+                            }, 150);
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEventClick(ev.id);
+                          }}
                         />
                       </>
                     )}
@@ -406,6 +440,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
 
           const notes = ev.notes ?? "";
           const truncated = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
+          const hasTags = ev.tags.length > 0;
 
           const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
           const tlIdx = visibleTimelines.findIndex((tl) => ev.timelines.some((t) => t.id === tl.id));
@@ -414,13 +449,30 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
           const ly = yMid - 20;
 
           const tooltipW = 230;
-          const tooltipH = 115;
+          const tooltipH = 115 + (hasTags ? 28 : 0);
           const tooltipX = Math.max(padding.left + 4, cx - tooltipW / 2);
           const tooltipY = Math.max(padding.top + 4, ly - tooltipH - 14);
 
           return (
             <foreignObject x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH}>
-              <div style={{
+              <div
+                onMouseEnter={() => {
+                  if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                    hoverTimeoutRef.current = null;
+                  }
+                  setHovered(ev.id);
+                }}
+                onMouseLeave={() => {
+                  hoverTimeoutRef.current = setTimeout(() => {
+                    setHovered(null);
+                  }, 150);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEventClick(ev.id);
+                }}
+                style={{
                 background: "white",
                 border: "1px solid #d1d5db",
                 borderRadius: "12px",
@@ -476,6 +528,57 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
                     )}
                   </div>
                 </div>
+                {hasTags && (
+                  <div style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "3px",
+                    flexShrink: 0,
+                  }}>
+                    {ev.tags.map((tag) => {
+                      const tagHex = tag.color.toString(16).padStart(6, "0");
+                      return (
+                        <span key={tag.id} style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "2px",
+                          borderRadius: "4px",
+                          border: "1px solid #e2e8f0",
+                          padding: tag.previewUrl ? "1px" : "1px 5px",
+                          fontSize: "9px",
+                          lineHeight: "16px",
+                          color: "#475569",
+                        }}>
+                          {tag.previewUrl ? (
+                            <img
+                              src={tag.previewUrl}
+                              alt={tag.name}
+                              title={tag.name}
+                              style={{
+                                width: "16px",
+                                height: "16px",
+                                objectFit: "cover",
+                                borderRadius: "3px",
+                                flexShrink: 0,
+                              }}
+                            />
+                          ) : (
+                            <>
+                              <span style={{
+                                display: "inline-block",
+                                width: "8px",
+                                height: "8px",
+                                borderRadius: "50%",
+                                backgroundColor: `#${tagHex}`,
+                              }} />
+                              <span style={{ marginLeft: "3px", fontSize: "9px" }}>{tag.name}</span>
+                            </>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </foreignObject>
           );

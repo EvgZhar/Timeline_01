@@ -14,7 +14,7 @@ import { getTimelineIdsForEvents } from "./timelinesService.js";
 
 async function loadEventRelations(eventIds: number[]): Promise<{
   timelines: Map<number, { id: number; name: string }[]>;
-  tags: Map<number, { id: number; name: string; color: number; createdDateTime: string }[]>;
+  tags: Map<number, { id: number; name: string; color: number; previewUrl: string | null; createdDateTime: string }[]>;
   documents: Map<
     number,
     {
@@ -38,6 +38,7 @@ async function loadEventRelations(eventIds: number[]): Promise<{
             id: tagTable.id,
             name: tagTable.name,
             color: tagTable.color,
+            previewUrl: tagTable.previewUrl,
             createdDateTime: tagTable.createdDateTime,
           })
           .from(tagEventLink)
@@ -70,13 +71,14 @@ async function loadEventRelations(eventIds: number[]): Promise<{
     documents.set(d.eventId, arr);
   }
 
-  const tagMap = new Map<number, { id: number; name: string; color: number; createdDateTime: string }[]>();
+  const tagMap = new Map<number, { id: number; name: string; color: number; previewUrl: string | null; createdDateTime: string }[]>();
   for (const t of tagLinks) {
     const arr = tagMap.get(t.eventId) ?? [];
     arr.push({
       id: t.id,
       name: t.name,
       color: t.color,
+      previewUrl: t.previewUrl,
       createdDateTime: t.createdDateTime,
     });
     tagMap.set(t.eventId, arr);
@@ -101,6 +103,7 @@ function toDto(
       id: t.id,
       name: t.name,
       color: t.color,
+      previewUrl: t.previewUrl ?? undefined,
       createdDateTime: t.createdDateTime,
     })),
     documents: (rel.documents.get(row.id) ?? []).map((d) => ({
