@@ -44,6 +44,7 @@ export const tagTable = sqliteTable("TagTable", {
   id: integer("Id").primaryKey({ autoIncrement: true }),
   name: text("Name", { length: 40 }).notNull(),
   color: integer("Color").notNull(),
+  previewUrl: text("PreviewUrl"),
   createdDateTime: text("CreatedDateTime")
     .notNull()
     .default(sql`(datetime('now'))`),

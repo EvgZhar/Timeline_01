@@ -27,7 +27,7 @@ function TagPill({
     <button
       type="button"
       onClick={onClick}
-      className="rounded px-2.5 py-1 text-xs font-medium transition-colors"
+      className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors"
       style={
         selected
           ? { backgroundColor: `#${hex}`, color: "#fff" }
@@ -38,6 +38,13 @@ function TagPill({
             }
       }
     >
+      <span className="inline-block h-3 w-3 shrink-0 overflow-hidden rounded-sm">
+        {tag.previewUrl ? (
+          <img src={tag.previewUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="block h-full w-full" style={{ backgroundColor: `#${hex}` }} />
+        )}
+      </span>
       {tag.name}
     </button>
   );
@@ -140,9 +147,15 @@ export function TagSearch({
                         key={t.id}
                         type="button"
                         onClick={() => toggleTag(t.id)}
-                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs text-white hover:opacity-80"
-                        style={{ backgroundColor: `#${hex}` }}
+                        className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700 hover:bg-slate-50"
                       >
+                        <span className="inline-block h-3 w-3 shrink-0 overflow-hidden rounded-sm">
+                          {t.previewUrl ? (
+                            <img src={t.previewUrl} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="block h-full w-full" style={{ backgroundColor: `#${hex}` }} />
+                          )}
+                        </span>
                         {t.name}
                         <X size={12} />
                       </button>

@@ -12,6 +12,7 @@ export interface TagDto {
   id: number;
   name: string;
   color: number;
+  previewUrl?: string;
   createdDateTime: string;
 }
 

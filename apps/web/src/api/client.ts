@@ -58,8 +58,11 @@ export const api = {
     list: (q?: string) =>
       request<TagDto[]>(q ? `/api/tags?q=${encodeURIComponent(q)}` : "/api/tags"),
     recent: () => request<TagDto[]>("/api/tags/recent"),
-    create: (body: { name: string; color: number }) =>
+    create: (body: { name: string; color: number; previewUrl?: string | null }) =>
       request<TagDto>("/api/tags", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: number, body: { name?: string; color?: number; previewUrl?: string | null }) =>
+      request<TagDto>(`/api/tags/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: number) => request<void>(`/api/tags/${id}`, { method: "DELETE" }),
   },
   documents: {
     list: (eventId: number) =>

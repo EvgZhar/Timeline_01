@@ -27,6 +27,7 @@ export const eventUpdateSchema = eventCreateSchema;
 export const tagCreateSchema = z.object({
   name: z.string().min(1).max(40),
   color: z.number().int(),
+  previewUrl: z.string().max(2000).optional().nullable(),
 });
 
 export const documentCreateUrlSchema = z.object({

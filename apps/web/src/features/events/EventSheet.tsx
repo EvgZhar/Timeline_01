@@ -477,9 +477,15 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                   return (
                     <span
                       key={t.id}
-                      className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs text-white"
-                      style={{ backgroundColor: `#${hex}` }}
+                      className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700"
                     >
+                      <span className="inline-block h-3 w-3 shrink-0 overflow-hidden rounded-sm">
+                        {t.previewUrl ? (
+                          <img src={t.previewUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="block h-full w-full" style={{ backgroundColor: `#${hex}` }} />
+                        )}
+                      </span>
                       {t.name}
                       <button type="button" className="leading-none hover:opacity-70" onClick={() => removeTag(t.id)}>
                         ✕
@@ -513,7 +519,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                         <button
                           key={t.id}
                           type="button"
-                          className="rounded border px-2 py-1 text-center text-xs"
+                          className="inline-flex items-center gap-1.5 rounded border px-2 py-1 text-center text-xs"
                           style={{
                             backgroundColor: `#${hex}1A`,
                             borderColor: `#${hex}`,
@@ -521,6 +527,13 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                           }}
                           onMouseDown={(e) => { e.preventDefault(); toggleTag(t.id); }}
                         >
+                          <span className="inline-block h-3 w-3 shrink-0 overflow-hidden rounded-sm">
+                            {t.previewUrl ? (
+                              <img src={t.previewUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="block h-full w-full" style={{ backgroundColor: `#${hex}` }} />
+                            )}
+                          </span>
                           {t.name}
                         </button>
                       );
@@ -614,9 +627,15 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                   return (
                     <span
                       key={t.id}
-                      className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs text-white"
-                      style={{ backgroundColor: `#${hex}` }}
+                      className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700"
                     >
+                      <span className="inline-block h-3 w-3 shrink-0 overflow-hidden rounded-sm">
+                        {t.previewUrl ? (
+                          <img src={t.previewUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="block h-full w-full" style={{ backgroundColor: `#${hex}` }} />
+                        )}
+                      </span>
                       {t.name}
                       <button type="button" className="leading-none hover:opacity-70" onClick={() => removeTag(t.id)}>
                         ✕
@@ -650,7 +669,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                         <button
                           key={t.id}
                           type="button"
-                          className="rounded border px-2 py-1 text-center text-xs"
+                          className="inline-flex items-center gap-1.5 rounded border px-2 py-1 text-center text-xs"
                           style={{
                             backgroundColor: `#${hex}1A`,
                             borderColor: `#${hex}`,
@@ -658,6 +677,13 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                           }}
                           onMouseDown={(e) => { e.preventDefault(); toggleTag(t.id); }}
                         >
+                          <span className="inline-block h-3 w-3 shrink-0 overflow-hidden rounded-sm">
+                            {t.previewUrl ? (
+                              <img src={t.previewUrl} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="block h-full w-full" style={{ backgroundColor: `#${hex}` }} />
+                            )}
+                          </span>
                           {t.name}
                         </button>
                       );

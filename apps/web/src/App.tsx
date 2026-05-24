@@ -23,6 +23,7 @@ export default function App() {
   const [tagFilterIds, setTagFilterIds] = useState<number[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<"and" | "or">("or");
   const [viewRange, setViewRange] = useState<ViewRange | null>(null);
+  const [showTagsOnTimeline, setShowTagsOnTimeline] = useState(false);
 
   const initializedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -66,6 +67,9 @@ export default function App() {
         }
       } catch { /* ignore */ }
     }
+
+    const rawShowTags = settings.settings["ui.showTagsOnTimeline"];
+    if (rawShowTags === "true") setShowTagsOnTimeline(true);
   }, [settings]);
 
   // Save tag filters on change (after initial load)
@@ -98,14 +102,28 @@ export default function App() {
     }, 500);
   }, [qc]);
 
+  // Save showTagsOnTimeline (debounced)
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      api.settings.put({
+        "ui.showTagsOnTimeline": showTagsOnTimeline ? "true" : "false",
+      }).then(() => qc.invalidateQueries({ queryKey: ["settings"] }));
+    }, 300);
+    return () => clearTimeout(saveTimerRef.current);
+  }, [showTagsOnTimeline, qc]);
+
   // Clear all saved UI settings
   const handleClearSettings = useCallback(() => {
     setViewRange(null);
     setTagFilterIds([]);
     setTagFilterMode("or");
+    setShowTagsOnTimeline(false);
     api.settings.put({
       "ui.viewRange": null,
       "ui.tagFilters": null,
+      "ui.showTagsOnTimeline": null,
     }).then(() => qc.invalidateQueries({ queryKey: ["settings"] }));
   }, [qc]);
 
@@ -145,6 +163,7 @@ export default function App() {
           }
           initialRange={viewRange}
           onRangeChange={handleRangeChange}
+          showTagsOnTimeline={showTagsOnTimeline}
         />
       </main>
 
@@ -155,6 +174,8 @@ export default function App() {
         savedViewRange={viewRange}
         savedTagFilterIds={tagFilterIds}
         savedTagFilterMode={tagFilterMode}
+        showTagsOnTimeline={showTagsOnTimeline}
+        onShowTagsOnTimelineChange={setShowTagsOnTimeline}
         onClearSettings={handleClearSettings}
       />
       <TagSearch
