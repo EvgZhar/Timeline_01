@@ -7,10 +7,11 @@ import {
   isYandexConfigured,
   putSettings,
 } from "../services/settings/settingsService.js";
+import { authenticate } from "../middleware/authenticate.js";
 
 export const settingsRouter = Router();
 
-settingsRouter.get("/", async (_req, res, next) => {
+settingsRouter.get("/", authenticate, async (_req, res, next) => {
   try {
     res.json({ settings: await getSettings() });
   } catch (e) {
@@ -18,7 +19,7 @@ settingsRouter.get("/", async (_req, res, next) => {
   }
 });
 
-settingsRouter.put("/", async (req, res, next) => {
+settingsRouter.put("/", authenticate, async (req, res, next) => {
   try {
     const { settings } = settingsUpdateSchema.parse(req.body);
     const updated = await putSettings(settings);
@@ -28,7 +29,7 @@ settingsRouter.put("/", async (req, res, next) => {
   }
 });
 
-settingsRouter.get("/yandex/status", async (_req, res, next) => {
+settingsRouter.get("/yandex/status", authenticate, async (_req, res, next) => {
   try {
     res.json({
       configured: await isYandexConfigured(),
@@ -39,7 +40,7 @@ settingsRouter.get("/yandex/status", async (_req, res, next) => {
   }
 });
 
-settingsRouter.post("/yandex/test", async (_req, res, next) => {
+settingsRouter.post("/yandex/test", authenticate, async (_req, res, next) => {
   try {
     const folder = await ensureAppFolder();
     const info = await getDiskInfo();

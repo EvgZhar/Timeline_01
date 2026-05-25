@@ -30,24 +30,24 @@ async function ensureEvent(name: string, startDate: string, endDate: string, not
   return row;
 }
 
-async function linkEventToTimeline(eventId: number, timelineId: number) {
+async function linkEventToTimeline(eventId: number, timelineId: number, dataAreaId = 1) {
   const existing = await db
     .select()
     .from(eventTimelineLink)
     .where(and(eq(eventTimelineLink.eventId, eventId), eq(eventTimelineLink.timelineId, timelineId)))
     .limit(1);
   if (existing.length > 0) return;
-  await db.insert(eventTimelineLink).values({ eventId, timelineId });
+  await db.insert(eventTimelineLink).values({ eventId, timelineId, dataAreaId });
 }
 
-async function tagEvent(eventId: number, tagId: number) {
+async function tagEvent(eventId: number, tagId: number, dataAreaId = 1) {
   const existing = await db
     .select()
     .from(tagEventLink)
     .where(and(eq(tagEventLink.eventId, eventId), eq(tagEventLink.tagId, tagId)))
     .limit(1);
   if (existing.length > 0) return;
-  await db.insert(tagEventLink).values({ eventId, tagId });
+  await db.insert(tagEventLink).values({ eventId, tagId, dataAreaId });
 }
 
 function hslToInt(h: number, s: number, l: number): number {

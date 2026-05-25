@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 import type { EventCreate, EventDto } from "@timeline/shared";
 import { db } from "../db/index.js";
 import {
@@ -8,6 +8,7 @@ import {
   eventTimelineLink,
   tagEventLink,
   tagTable,
+  timelineTable,
 } from "../db/schema.js";
 import { deleteResource } from "../integrations/yandex-disk/client.js";
 import { getTimelineIdsForEvents } from "./timelinesService.js";
@@ -97,6 +98,7 @@ function toDto(
     startDate: row.startDate,
     endDate: row.endDate ?? row.startDate,
     notes: row.notes,
+    dataAreaId: row.dataAreaId,
     createdDateTime: row.createdDateTime,
     timelines: rel.timelines.get(row.id) ?? [],
     tags: (rel.tags.get(row.id) ?? []).map((t) => ({
@@ -122,7 +124,7 @@ function toDto(
   };
 }
 
-export async function listEvents(timelineId?: number): Promise<EventDto[]> {
+export async function listEvents(timelineId?: number, allowedDataAreaIds?: number[]): Promise<EventDto[]> {
   let eventIds: number[] | undefined;
   if (timelineId) {
     const links = await db
@@ -133,24 +135,36 @@ export async function listEvents(timelineId?: number): Promise<EventDto[]> {
     if (eventIds.length === 0) return [];
   }
 
-  const rows =
-    eventIds !== undefined
-      ? await db.select().from(eventTable).where(inArray(eventTable.id, eventIds))
-      : await db.select().from(eventTable).orderBy(asc(eventTable.startDate));
+  const conditions: SQL[] = [];
+
+  if (eventIds !== undefined) {
+    conditions.push(inArray(eventTable.id, eventIds));
+  }
+
+  if (allowedDataAreaIds && allowedDataAreaIds.length > 0) {
+    conditions.push(inArray(eventTable.dataAreaId, allowedDataAreaIds));
+  }
+
+  const rows = conditions.length > 0
+    ? await db.select().from(eventTable).where(and(...conditions)).orderBy(asc(eventTable.startDate))
+    : await db.select().from(eventTable).orderBy(asc(eventTable.startDate));
 
   const ids = rows.map((r) => r.id);
   const rel = await loadEventRelations(ids);
   return rows.map((r) => toDto(r, rel));
 }
 
-export async function getEvent(id: number): Promise<EventDto | null> {
-  const [row] = await db.select().from(eventTable).where(eq(eventTable.id, id));
+export async function getEvent(id: number, allowedDataAreaIds?: number[]): Promise<EventDto | null> {
+  const [row] = await db.select().from(eventTable).where(eq(eventTable.id, id)).limit(1);
   if (!row) return null;
+  if (allowedDataAreaIds && allowedDataAreaIds.length > 0 && row.dataAreaId && !allowedDataAreaIds.includes(row.dataAreaId)) {
+    return null;
+  }
   const rel = await loadEventRelations([id]);
   return toDto(row, rel);
 }
 
-export async function createEvent(data: EventCreate): Promise<EventDto> {
+export async function createEvent(data: EventCreate, dataAreaId?: number | null): Promise<EventDto> {
   const endDate = data.endDate ?? data.startDate;
   const [row] = await db
     .insert(eventTable)
@@ -159,6 +173,7 @@ export async function createEvent(data: EventCreate): Promise<EventDto> {
       startDate: data.startDate,
       endDate,
       notes: data.notes ?? null,
+      dataAreaId,
     })
     .returning();
 
@@ -168,6 +183,12 @@ export async function createEvent(data: EventCreate): Promise<EventDto> {
 
 export async function updateEvent(id: number, data: EventCreate): Promise<EventDto | null> {
   const endDate = data.endDate ?? data.startDate;
+  const [existing] = await db
+    .select({ dataAreaId: eventTable.dataAreaId })
+    .from(eventTable)
+    .where(eq(eventTable.id, id))
+    .limit(1);
+  if (!existing) return null;
   const [row] = await db
     .update(eventTable)
     .set({
@@ -178,7 +199,6 @@ export async function updateEvent(id: number, data: EventCreate): Promise<EventD
     })
     .where(eq(eventTable.id, id))
     .returning();
-  if (!row) return null;
   await db.delete(eventTimelineLink).where(eq(eventTimelineLink.eventId, id));
   await db.delete(tagEventLink).where(eq(tagEventLink.eventId, id));
   await syncEventLinks(id, data);
@@ -186,11 +206,25 @@ export async function updateEvent(id: number, data: EventCreate): Promise<EventD
 }
 
 async function syncEventLinks(eventId: number, data: EventCreate): Promise<void> {
-  for (const timelineId of data.timelineIds) {
-    await db.insert(eventTimelineLink).values({ eventId, timelineId });
+  if (data.timelineIds.length > 0) {
+    const timelines = await db
+      .select({ id: timelineTable.id, dataAreaId: timelineTable.dataAreaId })
+      .from(timelineTable)
+      .where(inArray(timelineTable.id, data.timelineIds));
+    const areaById = new Map(timelines.map((t) => [t.id, t.dataAreaId]));
+    for (const timelineId of data.timelineIds) {
+      await db.insert(eventTimelineLink).values({ eventId, timelineId, dataAreaId: areaById.get(timelineId) ?? null });
+    }
   }
-  for (const tagId of data.tagIds ?? []) {
-    await db.insert(tagEventLink).values({ eventId, tagId });
+  if ((data.tagIds ?? []).length > 0) {
+    const tags = await db
+      .select({ id: tagTable.id, dataAreaId: tagTable.dataAreaId })
+      .from(tagTable)
+      .where(inArray(tagTable.id, data.tagIds!));
+    const areaById = new Map(tags.map((t) => [t.id, t.dataAreaId]));
+    for (const tagId of data.tagIds!) {
+      await db.insert(tagEventLink).values({ eventId, tagId, dataAreaId: areaById.get(tagId) ?? null });
+    }
   }
 }
 

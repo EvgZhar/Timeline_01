@@ -1,4 +1,4 @@
-import { desc, eq, like, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, like, sql, type SQL } from "drizzle-orm";
 import type { TagDto } from "@timeline/shared";
 import { db } from "../db/index.js";
 import { tagEventLink, tagTable } from "../db/schema.js";
@@ -9,23 +9,24 @@ function toDto(row: typeof tagTable.$inferSelect): TagDto {
     name: row.name,
     color: row.color,
     previewUrl: row.previewUrl ?? undefined,
+    dataAreaId: row.dataAreaId,
     createdDateTime: row.createdDateTime,
   };
 }
 
-export async function listTags(q?: string): Promise<TagDto[]> {
-  const rows = q
-    ? await db
-        .select()
-        .from(tagTable)
-        .where(like(tagTable.name, `%${q}%`))
-        .orderBy(tagTable.name)
+export async function listTags(q?: string, allowedDataAreaIds?: number[]): Promise<TagDto[]> {
+  const conditions: SQL[] = [];
+  if (q) conditions.push(like(tagTable.name, `%${q}%`));
+  if (allowedDataAreaIds && allowedDataAreaIds.length > 0) conditions.push(inArray(tagTable.dataAreaId, allowedDataAreaIds));
+
+  const rows = conditions.length > 0
+    ? await db.select().from(tagTable).where(and(...conditions)).orderBy(tagTable.name)
     : await db.select().from(tagTable).orderBy(tagTable.name);
   return rows.map(toDto);
 }
 
-export async function createTag(name: string, color: number, previewUrl?: string): Promise<TagDto> {
-  const [row] = await db.insert(tagTable).values({ name, color, previewUrl }).returning();
+export async function createTag(name: string, color: number, dataAreaId?: number | null, previewUrl?: string): Promise<TagDto> {
+  const [row] = await db.insert(tagTable).values({ name, color, dataAreaId, previewUrl }).returning();
   return toDto(row);
 }
 
@@ -52,6 +53,7 @@ export async function getRecentTags(): Promise<TagDto[]> {
       name: tagTable.name,
       color: tagTable.color,
       previewUrl: tagTable.previewUrl,
+      dataAreaId: tagTable.dataAreaId,
       createdDateTime: tagTable.createdDateTime,
       lastUsed: sql<string>`max(${tagEventLink.createdDateTime})`.as("lastUsed"),
     })
@@ -60,5 +62,5 @@ export async function getRecentTags(): Promise<TagDto[]> {
     .groupBy(tagTable.id)
     .orderBy(desc(sql`lastUsed`))
     .limit(12);
-  return rows.map(toDto);
+  return rows.map((row) => toDto(row as typeof tagTable.$inferSelect));
 }

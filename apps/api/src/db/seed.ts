@@ -37,9 +37,9 @@ async function seed() {
     .returning();
 
   await db.insert(eventTimelineLink).values([
-    { eventId: e1.id, timelineId: t1.id },
-    { eventId: e2.id, timelineId: t1.id },
-    { eventId: e1.id, timelineId: t2.id },
+    { eventId: e1.id, timelineId: t1.id, dataAreaId: 1 },
+    { eventId: e2.id, timelineId: t1.id, dataAreaId: 1 },
+    { eventId: e1.id, timelineId: t2.id, dataAreaId: 1 },
   ]);
 
   console.log("Seed complete");

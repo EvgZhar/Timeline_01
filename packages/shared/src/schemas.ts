@@ -45,6 +45,25 @@ export const reorderTimelinesSchema = z.object({
   orderedIds: z.array(z.number().int().positive()),
 });
 
+export const loginSchema = z.object({
+  login: z.string().min(1, "Логин обязателен"),
+  password: z.string().min(1, "Пароль обязателен"),
+});
+
+export const registerSchema = z.object({
+  login: z.string().min(3, "Минимум 3 символа").max(50),
+  email: z.string().email("Некорректный email"),
+  password: z.string().min(4, "Минимум 4 символа"),
+  firstName: z.string().min(1).max(100),
+  lastName: z.string().min(1).max(100),
+});
+
+export const authSettingsSchema = z.object({
+  currentDataAreaId: z.number().int().positive(),
+});
+
 export type TimelineCreate = z.infer<typeof timelineCreateSchema>;
 export type EventCreate = z.infer<typeof eventCreateSchema>;
 export type TagCreate = z.infer<typeof tagCreateSchema>;
+export type Login = z.infer<typeof loginSchema>;
+export type Register = z.infer<typeof registerSchema>;

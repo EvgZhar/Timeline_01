@@ -1,15 +1,25 @@
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { TimelineDto } from "@timeline/shared";
 import { db } from "../db/index.js";
 import { eventTimelineLink, timelineTable, userPreferences } from "../db/schema.js";
 
-export async function listTimelines(): Promise<TimelineDto[]> {
-  const timelines = await db
-    .select()
-    .from(timelineTable)
-    .orderBy(asc(timelineTable.sortIndex), asc(timelineTable.id));
+export async function listTimelines(userId: number, allowedDataAreaIds: number[]): Promise<TimelineDto[]> {
+  const timelines = allowedDataAreaIds.length > 0
+    ? await db
+        .select()
+        .from(timelineTable)
+        .where(inArray(timelineTable.dataAreaId, allowedDataAreaIds))
+        .orderBy(asc(timelineTable.sortIndex), asc(timelineTable.id))
+    : await db
+        .select()
+        .from(timelineTable)
+        .orderBy(asc(timelineTable.sortIndex), asc(timelineTable.id));
 
-  const prefs = await db.select().from(userPreferences);
+  const prefs = await db
+    .select()
+    .from(userPreferences)
+    .where(eq(userPreferences.userId, userId));
+
   const prefMap = new Map(prefs.map((p) => [p.timelineId, p.visible]));
 
   return timelines.map((t) => ({
@@ -19,11 +29,12 @@ export async function listTimelines(): Promise<TimelineDto[]> {
     iconUrl: t.iconUrl,
     sortIndex: t.sortIndex ?? 0,
     visible: prefMap.get(t.id) ?? true,
+    dataAreaId: t.dataAreaId,
     createdDateTime: t.createdDateTime,
   }));
 }
 
-export async function createTimeline(name: string, description?: string): Promise<TimelineDto> {
+export async function createTimeline(name: string, userId: number, description?: string, dataAreaId?: number | null): Promise<TimelineDto> {
   const [maxRow] = await db
     .select({ m: sql<number>`coalesce(max(${timelineTable.sortIndex}), -1)` })
     .from(timelineTable);
@@ -31,10 +42,10 @@ export async function createTimeline(name: string, description?: string): Promis
 
   const [row] = await db
     .insert(timelineTable)
-    .values({ name, description: description ?? null, sortIndex })
+    .values({ name, description: description ?? null, sortIndex, dataAreaId })
     .returning();
 
-  await db.insert(userPreferences).values({ timelineId: row.id, visible: true });
+  await db.insert(userPreferences).values({ userId, timelineId: row.id, visible: true });
 
   return {
     id: row.id,
@@ -43,6 +54,7 @@ export async function createTimeline(name: string, description?: string): Promis
     iconUrl: row.iconUrl,
     sortIndex: row.sortIndex ?? 0,
     visible: true,
+    dataAreaId: row.dataAreaId,
     createdDateTime: row.createdDateTime,
   };
 }
@@ -57,8 +69,16 @@ export async function updateTimeline(
     .where(eq(timelineTable.id, id))
     .returning();
   if (!row) return null;
-  const list = await listTimelines();
-  return list.find((t) => t.id === id) ?? null;
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    iconUrl: row.iconUrl,
+    sortIndex: row.sortIndex ?? 0,
+    visible: true,
+    dataAreaId: row.dataAreaId,
+    createdDateTime: row.createdDateTime,
+  };
 }
 
 export async function deleteTimeline(id: number): Promise<boolean> {
@@ -66,18 +86,24 @@ export async function deleteTimeline(id: number): Promise<boolean> {
   return r.changes > 0;
 }
 
-export async function setVisibility(id: number, visible: boolean): Promise<void> {
+export async function setVisibility(timelineId: number, userId: number, visible: boolean): Promise<void> {
   const [existing] = await db
     .select()
     .from(userPreferences)
-    .where(eq(userPreferences.timelineId, id));
+    .where(and(
+      eq(userPreferences.timelineId, timelineId),
+      eq(userPreferences.userId, userId),
+    ));
   if (existing) {
     await db
       .update(userPreferences)
       .set({ visible })
-      .where(eq(userPreferences.timelineId, id));
+      .where(and(
+        eq(userPreferences.timelineId, timelineId),
+        eq(userPreferences.userId, userId),
+      ));
   } else {
-    await db.insert(userPreferences).values({ timelineId: id, visible });
+    await db.insert(userPreferences).values({ userId, timelineId, visible });
   }
 }
 

@@ -67,6 +67,7 @@ export async function createFromUrl(
   description: string,
   originalLink: string,
   resourceType?: string,
+  dataAreaId?: number | null,
 ): Promise<DocumentDto> {
   const [doc] = await db
     .insert(documentTable)
@@ -74,13 +75,14 @@ export async function createFromUrl(
       description,
       originalLink,
       resourceType: resourceType ?? "image",
+      dataAreaId,
     })
     .returning();
 
   const count = await countDocumentsForEvent(eventId);
   const isPrimary = count === 0;
 
-  await db.insert(documentEventLink).values({ eventId, documentId: doc.documentId, isPrimary });
+  await db.insert(documentEventLink).values({ eventId, documentId: doc.documentId, isPrimary, dataAreaId });
 
   return {
     documentId: doc.documentId,
@@ -100,6 +102,7 @@ export async function createFromUpload(
   buffer: Buffer,
   filename: string,
   mime?: string,
+  dataAreaId?: number | null,
 ): Promise<DocumentDto> {
   if (!(await isYandexConfigured())) {
     throw new Error("Настройте Яндекс.Диск в параметрах");
@@ -116,12 +119,13 @@ export async function createFromUpload(
       description,
       storageLink: diskPath,
       resourceType,
+      dataAreaId,
     })
     .returning();
   const count = await countDocumentsForEvent(eventId);
   const isPrimary = count === 0;
 
-  await db.insert(documentEventLink).values({ eventId, documentId: doc.documentId, isPrimary });
+  await db.insert(documentEventLink).values({ eventId, documentId: doc.documentId, isPrimary, dataAreaId });
 
   return {
     documentId: doc.documentId,

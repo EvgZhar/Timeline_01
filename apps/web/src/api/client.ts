@@ -1,20 +1,36 @@
 import type {
+  AuthResponse,
+  AuthSettingsDto,
+  DataAreaDto,
   DocumentDto,
   EventDto,
+  LoginRequest,
+  RegisterRequest,
   SettingsDto,
   TagDto,
   TimelineDto,
+  UserDataAreaDto,
+  UserDto,
   YandexStatusDto,
 } from "@timeline/shared";
 
+function getToken(): string | null {
+  try {
+    return localStorage.getItem("token");
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
+  const token = getToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...init?.headers as Record<string, string>,
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(path, { ...init, headers });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? res.statusText);
@@ -24,6 +40,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  auth: {
+    login: (body: LoginRequest) =>
+      request<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
+    register: (body: RegisterRequest) =>
+      request<AuthResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
+    me: () => request<UserDto>("/api/auth/me"),
+    getSettings: () => request<AuthSettingsDto>("/api/auth/settings"),
+    putSettings: (body: { currentDataAreaId: number }) =>
+      request<{ ok: boolean }>("/api/auth/settings", { method: "PUT", body: JSON.stringify(body) }),
+  },
+  admin: {
+    users: {
+      list: () => request<UserDto[]>("/api/admin/users"),
+      update: (id: number, body: Record<string, unknown>) =>
+        request<UserDto>(`/api/admin/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    },
+    dataAreas: {
+      list: () => request<DataAreaDto[]>("/api/admin/data-areas"),
+      users: (id: number) => request<UserDataAreaDto[]>(`/api/admin/data-areas/${id}/users`),
+    },
+    userDataArea: {
+      set: (body: Record<string, unknown>) =>
+        request<{ ok: boolean }>("/api/admin/user-data-area", { method: "POST", body: JSON.stringify(body) }),
+      remove: (userId: number, dataAreaId: number) =>
+        request<{ ok: boolean }>("/api/admin/user-data-area", {
+          method: "DELETE",
+          body: JSON.stringify({ userId, dataAreaId }),
+        }),
+    },
+  },
   timelines: {
     list: () => request<TimelineDto[]>("/api/timelines"),
     create: (body: { name: string; description?: string }) =>

@@ -1,5 +1,66 @@
 import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { integer, sqliteTable, text, uniqueIndex, primaryKey } from "drizzle-orm/sqlite-core";
+
+// ── Multi-user / Data Area tables ──
+
+export const sysDataAreaTable = sqliteTable("SysDataAreaTable", {
+  id: integer("Id").primaryKey({ autoIncrement: true }),
+  name: text("Name", { length: 100 }).notNull(),
+  description: text("Description", { length: 255 }),
+  isPersonal: integer("IsPersonal", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("CreatedAt")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const sysUserTable = sqliteTable("SysUserTable", {
+  id: integer("Id").primaryKey({ autoIncrement: true }),
+  login: text("Login", { length: 50 }).notNull().unique(),
+  email: text("Email", { length: 255 }).notNull().unique(),
+  passwordHash: text("PasswordHash").notNull(),
+  firstName: text("FirstName", { length: 100 }),
+  lastName: text("LastName", { length: 100 }),
+  isActive: integer("IsActive", { mode: "boolean" }).notNull().default(true),
+  emailConfirmed: integer("EmailConfirmed", { mode: "boolean" }).notNull().default(false),
+  defaultDataAreaId: integer("DefaultDataAreaId")
+    .notNull()
+    .references(() => sysDataAreaTable.id),
+  createdAt: text("CreatedAt")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const sysUserDataArea = sqliteTable(
+  "SysUserDataArea",
+  {
+    userId: integer("UserId")
+      .notNull()
+      .references(() => sysUserTable.id, { onDelete: "cascade" }),
+    dataAreaId: integer("DataAreaId")
+      .notNull()
+      .references(() => sysDataAreaTable.id, { onDelete: "cascade" }),
+    canCreate: integer("CanCreate", { mode: "boolean" }).notNull().default(false),
+    canRead: integer("CanRead", { mode: "boolean" }).notNull().default(false),
+    canUpdate: integer("CanUpdate", { mode: "boolean" }).notNull().default(false),
+    canDelete: integer("CanDelete", { mode: "boolean" }).notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.dataAreaId] })],
+);
+
+export const sysUserSettingsTable = sqliteTable("SysUserSettingsTable", {
+  userId: integer("UserId")
+    .notNull()
+    .primaryKey()
+    .references(() => sysUserTable.id, { onDelete: "cascade" }),
+  currentDataAreaId: integer("CurrentDataAreaId")
+    .notNull()
+    .references(() => sysDataAreaTable.id),
+  updatedAt: text("UpdatedAt")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+// ── Domain tables (with DataAreaId) ──
 
 export const timelineTable = sqliteTable("TimelineTable", {
   id: integer("Id").primaryKey({ autoIncrement: true }),
@@ -7,6 +68,7 @@ export const timelineTable = sqliteTable("TimelineTable", {
   description: text("Description", { length: 255 }),
   iconUrl: text("IconUrl"),
   sortIndex: integer("SortIndex").default(0),
+  dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
   createdDateTime: text("CreatedDateTime")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -18,6 +80,7 @@ export const eventTable = sqliteTable("EventTable", {
   startDate: text("StartDate").notNull(),
   endDate: text("EndDate"),
   notes: text("Notes"),
+  dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
   createdDateTime: text("CreatedDateTime")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -33,6 +96,7 @@ export const eventTimelineLink = sqliteTable(
       .notNull()
       .references(() => timelineTable.id, { onDelete: "cascade" }),
     description: text("Description", { length: 60 }),
+    dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
     createdDateTime: text("CreatedDateTime")
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -45,6 +109,7 @@ export const tagTable = sqliteTable("TagTable", {
   name: text("Name", { length: 40 }).notNull(),
   color: integer("Color").notNull(),
   previewUrl: text("PreviewUrl"),
+  dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
   createdDateTime: text("CreatedDateTime")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -59,6 +124,7 @@ export const tagEventLink = sqliteTable(
     tagId: integer("TagId")
       .notNull()
       .references(() => tagTable.id, { onDelete: "cascade" }),
+    dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
     createdDateTime: text("CreatedDateTime")
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -72,6 +138,7 @@ export const documentTable = sqliteTable("DocumentTable", {
   originalLink: text("OriginalLink", { length: 1200 }),
   storageLink: text("StorageLink", { length: 1200 }),
   resourceType: text("ResourceType", { length: 100 }),
+  dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
   createdDateTime: text("CreatedDateTime")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -87,6 +154,7 @@ export const documentEventLink = sqliteTable(
       .notNull()
       .references(() => documentTable.documentId, { onDelete: "cascade" }),
     isPrimary: integer("IsPrimary", { mode: "boolean" }).notNull().default(false),
+    dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
     createdDateTime: text("CreatedDateTime")
       .notNull()
       .default(sql`(datetime('now'))`),
@@ -96,6 +164,9 @@ export const documentEventLink = sqliteTable(
 
 export const userPreferences = sqliteTable("UserPreferences", {
   id: integer("Id").primaryKey({ autoIncrement: true }),
+  userId: integer("UserId").references(() => sysUserTable.id, {
+    onDelete: "cascade",
+  }),
   timelineId: integer("TimelineId").references(() => timelineTable.id, {
     onDelete: "cascade",
   }),
