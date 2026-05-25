@@ -2,6 +2,7 @@ export interface TimelineDto {
   id: number;
   name: string;
   description: string | null;
+  iconUrl: string | null;
   sortIndex: number;
   visible: boolean;
   createdDateTime: string;
@@ -11,6 +12,7 @@ export interface TagDto {
   id: number;
   name: string;
   color: number;
+  previewUrl?: string;
   createdDateTime: string;
 }
 
@@ -20,6 +22,7 @@ export interface DocumentDto {
   originalLink: string | null;
   storageLink: string | null;
   resourceType: string | null;
+  isPrimary: boolean;
   previewUrl?: string;
   createdDateTime: string;
 }

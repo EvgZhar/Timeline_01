@@ -5,6 +5,7 @@ export const timelineTable = sqliteTable("TimelineTable", {
   id: integer("Id").primaryKey({ autoIncrement: true }),
   name: text("Name", { length: 60 }).notNull(),
   description: text("Description", { length: 255 }),
+  iconUrl: text("IconUrl"),
   sortIndex: integer("SortIndex").default(0),
   createdDateTime: text("CreatedDateTime")
     .notNull()
@@ -43,6 +44,7 @@ export const tagTable = sqliteTable("TagTable", {
   id: integer("Id").primaryKey({ autoIncrement: true }),
   name: text("Name", { length: 40 }).notNull(),
   color: integer("Color").notNull(),
+  previewUrl: text("PreviewUrl"),
   createdDateTime: text("CreatedDateTime")
     .notNull()
     .default(sql`(datetime('now'))`),
@@ -84,6 +86,7 @@ export const documentEventLink = sqliteTable(
     documentId: integer("DocumentId")
       .notNull()
       .references(() => documentTable.documentId, { onDelete: "cascade" }),
+    isPrimary: integer("IsPrimary", { mode: "boolean" }).notNull().default(false),
     createdDateTime: text("CreatedDateTime")
       .notNull()
       .default(sql`(datetime('now'))`),

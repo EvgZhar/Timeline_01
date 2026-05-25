@@ -24,7 +24,26 @@ tagsRouter.get("/", async (req, res, next) => {
 tagsRouter.post("/", async (req, res, next) => {
   try {
     const body = tagCreateSchema.parse(req.body);
-    res.status(201).json(await svc.createTag(body.name, body.color));
+    res.status(201).json(await svc.createTag(body.name, body.color, body.previewUrl));
+  } catch (e) {
+    next(e);
+  }
+});
+
+tagsRouter.put("/:id", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const { name, color, previewUrl } = req.body;
+    res.json(await svc.updateTag(id, { name, color, previewUrl }));
+  } catch (e) {
+    next(e);
+  }
+});
+
+tagsRouter.delete("/:id", async (req, res, next) => {
+  try {
+    await svc.deleteTag(Number(req.params.id));
+    res.status(204).end();
   } catch (e) {
     next(e);
   }

@@ -3,6 +3,7 @@ import { z } from "zod";
 export const timelineCreateSchema = z.object({
   name: z.string().min(3, "Минимум 3 символа").max(60),
   description: z.string().max(255).optional(),
+  iconUrl: z.string().url().max(2000).optional().nullable(),
 });
 
 export const timelineUpdateSchema = timelineCreateSchema.partial();
@@ -26,6 +27,7 @@ export const eventUpdateSchema = eventCreateSchema;
 export const tagCreateSchema = z.object({
   name: z.string().min(1).max(40),
   color: z.number().int(),
+  previewUrl: z.string().max(2000).optional().nullable(),
 });
 
 export const documentCreateUrlSchema = z.object({

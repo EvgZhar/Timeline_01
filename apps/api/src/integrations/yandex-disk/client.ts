@@ -58,7 +58,7 @@ export async function upload(path: string, body: Buffer, contentType?: string): 
   const { href, method } = (await res.json()) as { href: string; method: string };
   const put = await fetch(href, {
     method: method || "PUT",
-    body,
+    body: body as unknown as BodyInit,
     headers: contentType ? { "Content-Type": contentType } : undefined,
   });
   if (!put.ok) throw new YandexDiskError("Upload failed", put.status);

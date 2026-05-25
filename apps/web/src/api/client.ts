@@ -1,4 +1,5 @@
 import type {
+  DocumentDto,
   EventDto,
   SettingsDto,
   TagDto,
@@ -27,7 +28,7 @@ export const api = {
     list: () => request<TimelineDto[]>("/api/timelines"),
     create: (body: { name: string; description?: string }) =>
       request<TimelineDto>("/api/timelines", { method: "POST", body: JSON.stringify(body) }),
-    update: (id: number, body: { name?: string; description?: string }) =>
+    update: (id: number, body: { name?: string; description?: string; iconUrl?: string | null }) =>
       request<TimelineDto>(`/api/timelines/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: number) => request<void>(`/api/timelines/${id}`, { method: "DELETE" }),
     setVisibility: (id: number, visible: boolean) =>
@@ -57,8 +58,29 @@ export const api = {
     list: (q?: string) =>
       request<TagDto[]>(q ? `/api/tags?q=${encodeURIComponent(q)}` : "/api/tags"),
     recent: () => request<TagDto[]>("/api/tags/recent"),
-    create: (body: { name: string; color: number }) =>
+    create: (body: { name: string; color: number; previewUrl?: string | null }) =>
       request<TagDto>("/api/tags", { method: "POST", body: JSON.stringify(body) }),
+    update: (id: number, body: { name?: string; color?: number; previewUrl?: string | null }) =>
+      request<TagDto>(`/api/tags/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    delete: (id: number) => request<void>(`/api/tags/${id}`, { method: "DELETE" }),
+  },
+  documents: {
+    list: (eventId: number) =>
+      request<DocumentDto[]>(`/api/documents?eventId=${eventId}`),
+    createFromUrl: (body: {
+      eventId: number;
+      description: string;
+      originalLink: string;
+      resourceType?: string;
+    }) =>
+      request<DocumentDto>("/api/documents", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    delete: (id: number) =>
+      request<void>(`/api/documents/${id}`, { method: "DELETE" }),
+    setPrimary: (id: number) =>
+      request<DocumentDto>(`/api/documents/${id}/primary`, { method: "PATCH" }),
   },
   settings: {
     get: () => request<SettingsDto>("/api/settings"),
