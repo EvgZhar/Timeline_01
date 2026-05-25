@@ -1,12 +1,12 @@
 import { Router } from "express";
 import multer from "multer";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { documentCreateUrlSchema } from "@timeline/shared";
 import { db } from "../db/index.js";
 import { documentTable, documentEventLink, eventTable } from "../db/schema.js";
 import * as svc from "../services/documentsService.js";
 import { authenticate } from "../middleware/authenticate.js";
-import { checkPermission, getCurrentDataAreaId, getAllowedDataAreaIds } from "../services/permissionService.js";
+import { checkPermission } from "../services/permissionService.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -27,9 +27,8 @@ documentsRouter.get("/", authenticate, async (req, res, next) => {
       res.status(400).json({ error: "eventId обязателен" });
       return;
     }
-    const allowed = await getAllowedDataAreaIds(req.user!.userId, "canRead");
     const areaId = await getEventDataAreaId(eventId);
-    if (areaId && allowed.length > 0 && !allowed.includes(areaId)) {
+    if (areaId && !(await checkPermission(req.user!.userId, areaId, "canRead"))) {
       res.status(403).json({ error: "Нет доступа к событию" });
       return;
     }
@@ -57,14 +56,11 @@ documentsRouter.post("/", authenticate, upload.single("file"), async (req, res, 
     const eventId = Number(req.body.eventId);
     const description = req.body.description || req.file?.originalname || "Файл";
 
-    const allowed = await getAllowedDataAreaIds(req.user!.userId, "canCreate");
-    const areaId = await getEventDataAreaId(eventId);
-    if (areaId && allowed.length > 0 && !allowed.includes(areaId)) {
+    const eventDataAreaId = await getEventDataAreaId(eventId);
+    if (eventDataAreaId && !(await checkPermission(req.user!.userId, eventDataAreaId, "canCreate"))) {
       res.status(403).json({ error: "Нет права на создание вложений" });
       return;
     }
-
-    const eventDataAreaId = await getEventDataAreaId(eventId);
 
     if (req.file) {
       const count = await svc.countDocumentsForEvent(eventId);
@@ -91,7 +87,6 @@ documentsRouter.post("/", authenticate, upload.single("file"), async (req, res, 
 
 documentsRouter.patch("/:id/primary", authenticate, async (req, res, next) => {
   try {
-    const allowed = await getAllowedDataAreaIds(req.user!.userId, "canUpdate");
     const [link] = await db
       .select({ eventId: documentEventLink.eventId })
       .from(documentEventLink)
@@ -99,7 +94,7 @@ documentsRouter.patch("/:id/primary", authenticate, async (req, res, next) => {
       .limit(1);
     if (link) {
       const areaId = await getEventDataAreaId(link.eventId);
-      if (areaId && allowed.length > 0 && !allowed.includes(areaId)) {
+      if (areaId && !(await checkPermission(req.user!.userId, areaId, "canUpdate"))) {
         res.status(403).json({ error: "Нет права на изменение" });
         return;
       }
@@ -114,7 +109,6 @@ documentsRouter.patch("/:id/primary", authenticate, async (req, res, next) => {
 documentsRouter.delete("/:id", authenticate, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const allowed = await getAllowedDataAreaIds(req.user!.userId, "canDelete");
     const [link] = await db
       .select({ eventId: documentEventLink.eventId })
       .from(documentEventLink)
@@ -122,7 +116,7 @@ documentsRouter.delete("/:id", authenticate, async (req, res, next) => {
       .limit(1);
     if (link) {
       const areaId = await getEventDataAreaId(link.eventId);
-      if (areaId && allowed.length > 0 && !allowed.includes(areaId)) {
+      if (areaId && !(await checkPermission(req.user!.userId, areaId, "canDelete"))) {
         res.status(403).json({ error: "Нет права на удаление" });
         return;
       }

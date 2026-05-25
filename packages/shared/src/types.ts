@@ -50,7 +50,7 @@ export interface UserDataAreaDto {
 
 export interface AuthSettingsDto {
   currentDataAreaId: number;
-  availableAreas: { id: number; name: string; canCreate: boolean }[];
+  availableAreas: { id: number; name: string }[];
 }
 
 export interface TimelineDto {

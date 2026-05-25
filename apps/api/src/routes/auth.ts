@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { registerSchema, loginSchema, authSettingsSchema } from "@timeline/shared";
 import { db } from "../db/index.js";
 import {
@@ -195,25 +195,36 @@ authRouter.get("/settings", authenticate, async (req, res, next) => {
       .where(eq(sysUserSettingsTable.userId, userId))
       .limit(1);
 
-    // Get all data areas where user has Create permission
+    // Only areas where user has Create permission
     const permissions = await db
       .select({
         dataAreaId: sysUserDataArea.dataAreaId,
         name: sysDataAreaTable.name,
-        canCreate: sysUserDataArea.canCreate,
       })
       .from(sysUserDataArea)
       .innerJoin(sysDataAreaTable, eq(sysUserDataArea.dataAreaId, sysDataAreaTable.id))
-      .where(eq(sysUserDataArea.userId, userId));
+      .where(
+        and(eq(sysUserDataArea.userId, userId), eq(sysUserDataArea.canCreate, true)),
+      );
 
-    const currentDataAreaId = settings?.currentDataAreaId ?? null;
+    let currentDataAreaId = settings?.currentDataAreaId ?? null;
+
+    // Auto-correct if current area is not creatable or missing
+    if (permissions.length > 0 && (!currentDataAreaId || !permissions.some((p) => p.dataAreaId === currentDataAreaId))) {
+      currentDataAreaId = permissions[0].dataAreaId;
+      if (settings) {
+        await db
+          .update(sysUserSettingsTable)
+          .set({ currentDataAreaId })
+          .where(eq(sysUserSettingsTable.userId, userId));
+      }
+    }
 
     res.json({
       currentDataAreaId,
       availableAreas: permissions.map((p) => ({
         id: p.dataAreaId,
         name: p.name,
-        canCreate: p.canCreate,
       })),
     });
   } catch (e) {
@@ -227,14 +238,20 @@ authRouter.put("/settings", authenticate, async (req, res, next) => {
     const userId = req.user!.userId;
     const body = authSettingsSchema.parse(req.body);
 
-    // Verify user has access to this DataArea
+    // Verify user has canCreate on this DataArea
     const [perm] = await db
       .select()
       .from(sysUserDataArea)
-      .where(eq(sysUserDataArea.userId, userId))
+      .where(
+        and(
+          eq(sysUserDataArea.userId, userId),
+          eq(sysUserDataArea.dataAreaId, body.currentDataAreaId),
+          eq(sysUserDataArea.canCreate, true),
+        ),
+      )
       .limit(1);
     if (!perm) {
-      res.status(403).json({ error: "Нет доступа к указанной области" });
+      res.status(403).json({ error: "Нет права на создание в указанной области" });
       return;
     }
 

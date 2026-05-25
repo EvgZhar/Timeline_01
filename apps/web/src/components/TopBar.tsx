@@ -35,7 +35,7 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, filterCo
         >
           {settings.availableAreas.map((area) => (
             <option key={area.id} value={area.id}>
-              {area.name} {area.canCreate ? "" : " (read)"}
+              {area.name}
             </option>
           ))}
         </select>

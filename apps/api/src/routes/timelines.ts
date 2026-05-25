@@ -86,6 +86,15 @@ timelinesRouter.delete("/:id", authenticate, async (req, res, next) => {
 timelinesRouter.patch("/:id/visibility", authenticate, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
+    const [existing] = await db.select({ dataAreaId: timelineTable.dataAreaId }).from(timelineTable).where(eq(timelineTable.id, id)).limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Шкала не найдена" });
+      return;
+    }
+    if (existing.dataAreaId && !(await checkPermission(req.user!.userId, existing.dataAreaId, "canRead"))) {
+      res.status(403).json({ error: "Нет доступа к шкале" });
+      return;
+    }
     const visible = Boolean(req.body.visible);
     await svc.setVisibility(id, req.user!.userId, visible);
     res.json({ id, visible });
