@@ -24,6 +24,8 @@ export function TimelineApp() {
   >(null);
   const [tagFilterIds, setTagFilterIds] = useState<number[]>([]);
   const [tagFilterMode, setTagFilterMode] = useState<"and" | "or">("or");
+  const [textSearchQuery, setTextSearchQuery] = useState("");
+  const [textSearchMode, setTextSearchMode] = useState<"name" | "nameAndNotes">("name");
   const [viewRange, setViewRange] = useState<ViewRange | null>(null);
   const [showTagsOnTimeline, setShowTagsOnTimeline] = useState(false);
 
@@ -77,6 +79,15 @@ export function TimelineApp() {
       } catch { /* ignore */ }
     }
 
+    const rawTextSearch = settings.settings["ui.textSearch"];
+    if (typeof rawTextSearch === "string") {
+      try {
+        const parsed = JSON.parse(rawTextSearch);
+        if (typeof parsed.query === "string") setTextSearchQuery(parsed.query);
+        if (parsed.mode === "name" || parsed.mode === "nameAndNotes") setTextSearchMode(parsed.mode);
+      } catch {}
+    }
+
     const rawShowTags = settings.settings["ui.showTagsOnTimeline"];
     if (rawShowTags === "true") setShowTagsOnTimeline(true);
   }, [settings]);
@@ -92,6 +103,18 @@ export function TimelineApp() {
     }, 300);
     return () => clearTimeout(saveTimerRef.current);
   }, [tagFilterIds, tagFilterMode, qc]);
+
+  // Save text search on change (debounced)
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      api.settings.put({
+        "ui.textSearch": JSON.stringify({ query: textSearchQuery, mode: textSearchMode }),
+      }).then(() => qc.invalidateQueries({ queryKey: ["settings"] }));
+    }, 300);
+    return () => clearTimeout(saveTimerRef.current);
+  }, [textSearchQuery, textSearchMode, qc]);
 
   // Save last edited event ID
   useEffect(() => {
@@ -128,10 +151,13 @@ export function TimelineApp() {
     setViewRange(null);
     setTagFilterIds([]);
     setTagFilterMode("or");
+    setTextSearchQuery("");
+    setTextSearchMode("name");
     setShowTagsOnTimeline(false);
     api.settings.put({
       "ui.viewRange": null,
       "ui.tagFilters": null,
+      "ui.textSearch": null,
       "ui.showTagsOnTimeline": null,
     }).then(() => qc.invalidateQueries({ queryKey: ["settings"] }));
   }, [qc]);
@@ -147,16 +173,20 @@ export function TimelineApp() {
         onAddEvent={() => setEventSheet({ mode: "create" })}
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
-        filterCount={tagFilterIds.length}
+        filterCount={tagFilterIds.length + (textSearchQuery ? 1 : 0)}
         isAdmin={isAdmin}
       />
       <FilterBar
         tagFilterIds={tagFilterIds}
         tagFilterMode={tagFilterMode}
+        textSearchQuery={textSearchQuery}
         onRemoveTag={handleRemoveTag}
+        onRemoveTextSearch={() => setTextSearchQuery("")}
         onReset={() => {
           setTagFilterIds([]);
           setTagFilterMode("or");
+          setTextSearchQuery("");
+          setTextSearchMode("name");
         }}
         onSearch={() => setSearchOpen(true)}
       />
@@ -164,6 +194,8 @@ export function TimelineApp() {
         <TimelineCanvas
           tagFilterIds={tagFilterIds}
           tagFilterMode={tagFilterMode}
+          textSearchQuery={textSearchQuery}
+          textSearchMode={textSearchMode}
           onEventClick={(id) => setEventSheet({ mode: "edit", id })}
           onEmptyClick={(date, timelineId) =>
             setEventSheet({ mode: "create", initialDate: date, initialTimelineId: timelineId })
@@ -189,13 +221,19 @@ export function TimelineApp() {
         onOpenChange={setSearchOpen}
         selectedTagIds={tagFilterIds}
         mode={tagFilterMode}
-        onApply={(ids, m) => {
+        textSearchQuery={textSearchQuery}
+        textSearchMode={textSearchMode}
+        onApply={(ids, m, tq, tm) => {
           setTagFilterIds(ids);
           setTagFilterMode(m);
+          setTextSearchQuery(tq);
+          setTextSearchMode(tm);
         }}
         onReset={() => {
           setTagFilterIds([]);
           setTagFilterMode("or");
+          setTextSearchQuery("");
+          setTextSearchMode("name");
         }}
       />
       {eventSheet && (

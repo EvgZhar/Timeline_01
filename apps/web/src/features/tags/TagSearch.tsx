@@ -9,7 +9,9 @@ interface TagSearchProps {
   onOpenChange: (open: boolean) => void;
   selectedTagIds: number[];
   mode: "and" | "or";
-  onApply: (tagIds: number[], mode: "and" | "or") => void;
+  textSearchQuery: string;
+  textSearchMode: "name" | "nameAndNotes";
+  onApply: (tagIds: number[], mode: "and" | "or", textQuery: string, textMode: "name" | "nameAndNotes") => void;
   onReset: () => void;
 }
 
@@ -55,13 +57,18 @@ export function TagSearch({
   onOpenChange,
   selectedTagIds,
   mode,
+  textSearchQuery,
+  textSearchMode,
   onApply,
   onReset,
 }: TagSearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [localTagIds, setLocalTagIds] = useState<number[]>(selectedTagIds);
   const [localMode, setLocalMode] = useState<"and" | "or">(mode);
+  const [localTextQuery, setLocalTextQuery] = useState(textSearchQuery);
+  const [localTextMode, setLocalTextMode] = useState<"name" | "nameAndNotes">(textSearchMode);
   const inputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   const { data: allTags = [] } = useQuery({
     queryKey: ["tags"],
@@ -86,10 +93,12 @@ export function TagSearch({
     if (open) {
       setLocalTagIds(selectedTagIds);
       setLocalMode(mode);
+      setLocalTextQuery(textSearchQuery);
+      setLocalTextMode(textSearchMode);
       setSearchQuery("");
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [open, selectedTagIds, mode]);
+  }, [open, selectedTagIds, mode, textSearchQuery, textSearchMode]);
 
   const displayTags = (searchQuery.trim() ? searchedTags : recentTags).filter(
     (t) => !localTagIds.includes(t.id),
@@ -102,7 +111,7 @@ export function TagSearch({
   };
 
   const handleApply = () => {
-    onApply(localTagIds, localMode);
+    onApply(localTagIds, localMode, localTextQuery.trim(), localTextMode);
     onOpenChange(false);
   };
 
@@ -121,7 +130,7 @@ export function TagSearch({
       />
       <div className="fixed left-1/2 top-24 z-50 w-[420px] max-w-[90vw] -translate-x-1/2 rounded-lg border border-slate-200 bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-          <h2 className="text-base font-semibold">Поиск по тэгам</h2>
+          <h2 className="text-base font-semibold">Поиск по тэгам и названиям</h2>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
@@ -197,7 +206,7 @@ export function TagSearch({
           </div>
 
           <div className="mb-4 flex items-center gap-2">
-            <span className="text-sm text-slate-600">Условие:</span>
+            <span className="text-xs font-medium text-slate-500">Условие по тэгам:</span>
             <div className="flex overflow-hidden rounded border border-slate-300">
               <button
                 type="button"
@@ -224,16 +233,62 @@ export function TagSearch({
             </div>
           </div>
 
+          <hr className="mb-4 border-slate-200" />
+
+          <div className="mb-4">
+            <div className="mb-1 text-xs font-medium text-slate-500">Поиск по тексту:</div>
+            <div className="relative mb-2">
+              <Search
+                size={16}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                ref={textInputRef}
+                className="w-full rounded border border-slate-300 py-2 pl-8 pr-3 text-sm outline-none focus:border-blue-400"
+                placeholder="Поиск по названию..."
+                value={localTextQuery}
+                onChange={(e) => setLocalTextQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Область поиска:</span>
+              <div className="flex overflow-hidden rounded border border-slate-300">
+                <button
+                  type="button"
+                  className={`px-3 py-1 text-xs transition-colors ${
+                    localTextMode === "name"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                  onClick={() => setLocalTextMode("name")}
+                >
+                  Наименование
+                </button>
+                <button
+                  type="button"
+                  className={`border-l border-slate-300 px-3 py-1 text-xs transition-colors ${
+                    localTextMode === "nameAndNotes"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                  onClick={() => setLocalTextMode("nameAndNotes")}
+                >
+                  Наименование и описание
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <button
               type="button"
               className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-              disabled={localTagIds.length === 0}
+              disabled={localTagIds.length === 0 && !localTextQuery.trim()}
               onClick={handleApply}
             >
               Применить
             </button>
-            {selectedTagIds.length > 0 && (
+            {(selectedTagIds.length > 0 || textSearchQuery) && (
               <button
                 type="button"
                 className="rounded border border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50"

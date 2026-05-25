@@ -45,7 +45,7 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, filterCo
         type="button"
         onClick={onSearch}
         className="relative rounded-md border border-slate-300 bg-white p-2 text-slate-600 hover:bg-slate-100"
-        title="Поиск по тэгам"
+        title="Поиск по тэгам и названиям"
       >
         <Search size={20} />
         {filterCount > 0 && (

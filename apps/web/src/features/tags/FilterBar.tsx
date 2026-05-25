@@ -5,7 +5,9 @@ import { Search, X } from "lucide-react";
 interface FilterBarProps {
   tagFilterIds: number[];
   tagFilterMode: "and" | "or";
+  textSearchQuery: string;
   onRemoveTag: (tagId: number) => void;
+  onRemoveTextSearch: () => void;
   onReset: () => void;
   onSearch: () => void;
 }
@@ -13,7 +15,9 @@ interface FilterBarProps {
 export function FilterBar({
   tagFilterIds,
   tagFilterMode,
+  textSearchQuery,
   onRemoveTag,
+  onRemoveTextSearch,
   onReset,
   onSearch,
 }: FilterBarProps) {
@@ -23,7 +27,7 @@ export function FilterBar({
     staleTime: 30000,
   });
 
-  if (tagFilterIds.length === 0) return null;
+  if (tagFilterIds.length === 0 && !textSearchQuery) return null;
 
   return (
     <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-1.5">
@@ -36,7 +40,27 @@ export function FilterBar({
         <Search size={16} />
       </button>
 
-      <span className="text-xs font-medium text-slate-500">Активные тэги:</span>
+      <span className="text-xs font-medium text-slate-500">
+        {tagFilterIds.length > 0 && textSearchQuery
+          ? "Активные фильтры:"
+          : tagFilterIds.length > 0
+            ? "Активные тэги:"
+            : "Активный поиск:"}
+      </span>
+
+      {textSearchQuery && (
+        <span className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700">
+          <Search size={12} />
+          {textSearchQuery.length > 30 ? textSearchQuery.slice(0, 30) + "…" : textSearchQuery}
+          <button
+            type="button"
+            onClick={onRemoveTextSearch}
+            className="hover:opacity-70"
+          >
+            <X size={12} />
+          </button>
+        </span>
+      )}
 
       <div className="flex flex-wrap gap-1">
         {allTags

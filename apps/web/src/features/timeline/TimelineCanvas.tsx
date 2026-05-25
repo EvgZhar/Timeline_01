@@ -16,6 +16,8 @@ import {
 interface TimelineCanvasProps {
   tagFilterIds: number[];
   tagFilterMode: "and" | "or";
+  textSearchQuery: string;
+  textSearchMode: "name" | "nameAndNotes";
   onEventClick: (eventId: number) => void;
   onEmptyClick: (date: string, timelineId: number) => void;
   initialRange?: ViewRange | null;
@@ -40,7 +42,7 @@ function lightenColor(hex: string, mix: number): string {
   ].map(toHex).join("")}`;
 }
 
-export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEmptyClick, initialRange, onRangeChange }: TimelineCanvasProps) {
+export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode, onEventClick, onEmptyClick, initialRange, onRangeChange }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
@@ -244,11 +246,25 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, onEventClick, onEm
           const laneEvents = events.filter((ev) => {
             const inTimeline = ev.timelines.some((t) => t.id === tl.id);
             if (!inTimeline) return false;
-            if (tagFilterIds.length === 0) return true;
-            const tagIds = ev.tags.map((t) => t.id);
-            return tagFilterMode === "and"
-              ? tagFilterIds.every((id) => tagIds.includes(id))
-              : tagFilterIds.some((id) => tagIds.includes(id));
+
+            // Tag filter
+            if (tagFilterIds.length > 0) {
+              const tagIds = ev.tags.map((t) => t.id);
+              const matchesTags = tagFilterMode === "and"
+                ? tagFilterIds.every((id) => tagIds.includes(id))
+                : tagFilterIds.some((id) => tagIds.includes(id));
+              if (!matchesTags) return false;
+            }
+
+            // Text filter
+            if (textSearchQuery.trim()) {
+              const q = textSearchQuery.toLowerCase();
+              const nameMatch = ev.name.toLowerCase().includes(q);
+              if (textSearchMode === "name" && !nameMatch) return false;
+              if (textSearchMode === "nameAndNotes" && !nameMatch && !(ev.notes ?? "").toLowerCase().includes(q)) return false;
+            }
+
+            return true;
           });
 
           const labels = layoutLabels(
