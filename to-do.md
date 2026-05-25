@@ -84,3 +84,149 @@
 - [ ] Тест: линки на данные из недоступных областей не отображаются в UI
 - [ ] Тест: admin видит всех пользователей и все области
 - [ ] Проверка TypeScript: `npx tsc --noEmit -p apps/web/tsconfig.json`
+
+---
+
+## Целевая структура базы данных (ER-диаграмма)
+
+```mermaid
+erDiagram
+    SysDataAreaTable {
+        TEXT Id PK
+        TEXT Name
+        TEXT Description
+        BOOLEAN IsPersonal
+        TEXT CreatedAt
+    }
+
+    SysUserTable {
+        INTEGER Id PK
+        TEXT Login
+        TEXT Email
+        TEXT PasswordHash
+        TEXT FirstName
+        TEXT LastName
+        BOOLEAN IsActive
+        BOOLEAN EmailConfirmed
+        TEXT CreatedAt
+    }
+
+    SysUserDataArea {
+        INTEGER UserId FK
+        TEXT DataAreaId FK
+        BOOLEAN CanCreate
+        BOOLEAN CanRead
+        BOOLEAN CanUpdate
+        BOOLEAN CanDelete
+    }
+
+    TimelineTable {
+        INTEGER Id PK
+        TEXT Name
+        TEXT Description
+        TEXT IconUrl
+        INTEGER SortIndex
+        TEXT DataAreaId FK
+        TEXT CreatedDateTime
+    }
+
+    EventTable {
+        INTEGER Id PK
+        TEXT Name
+        TEXT StartDate
+        TEXT EndDate
+        TEXT Notes
+        TEXT DataAreaId FK
+        TEXT CreatedDateTime
+    }
+
+    EventTimelineLink {
+        INTEGER EventId FK
+        INTEGER TimelineId FK
+        TEXT Description
+        TEXT DataAreaId FK
+        TEXT CreatedDateTime
+    }
+
+    TagTable {
+        INTEGER Id PK
+        TEXT Name
+        INTEGER Color
+        TEXT PreviewUrl
+        TEXT DataAreaId FK
+        TEXT CreatedDateTime
+    }
+
+    TagEventLink {
+        INTEGER EventId FK
+        INTEGER TagId FK
+        TEXT DataAreaId FK
+        TEXT CreatedDateTime
+    }
+
+    DocumentTable {
+        INTEGER DocumentId PK
+        TEXT Description
+        TEXT OriginalLink
+        TEXT StorageLink
+        TEXT ResourceType
+        TEXT DataAreaId FK
+        TEXT CreatedDateTime
+    }
+
+    DocumentEventLink {
+        INTEGER EventId FK
+        INTEGER DocumentId FK
+        BOOLEAN IsPrimary
+        TEXT DataAreaId FK
+        TEXT CreatedDateTime
+    }
+
+    UserPreferences {
+        INTEGER Id PK
+        INTEGER TimelineId FK
+        BOOLEAN Visible
+        TEXT DataAreaId FK
+    }
+
+    AppSettings {
+        TEXT Key PK
+        TEXT Value
+        BOOLEAN IsSecret
+        TEXT UpdatedAt
+    }
+
+    SysUserTable ||--o{ SysUserDataArea : "имеет права"
+    SysDataAreaTable ||--o{ SysUserDataArea : "доступна"
+    SysDataAreaTable ||--o{ TimelineTable : "содержит"
+    SysDataAreaTable ||--o{ EventTable : "содержит"
+    SysDataAreaTable ||--o{ TagTable : "содержит"
+    SysDataAreaTable ||--o{ DocumentTable : "содержит"
+    SysDataAreaTable ||--o{ EventTimelineLink : "содержит"
+    SysDataAreaTable ||--o{ TagEventLink : "содержит"
+    SysDataAreaTable ||--o{ DocumentEventLink : "содержит"
+    EventTable ||--o{ EventTimelineLink : "связан"
+    TimelineTable ||--o{ EventTimelineLink : "связан"
+    EventTable ||--o{ TagEventLink : "помечен"
+    TagTable ||--o{ TagEventLink : "используется"
+    EventTable ||--o{ DocumentEventLink : "имеет документ"
+    DocumentTable ||--o{ DocumentEventLink : "прикреплён к"
+```
+
+**Ключевые изменения относительно текущей схемы:**
+
+| Таблица | Изменение |
+|---|---|
+| `SysDataAreaTable` | **Новая** — справочник областей данных |
+| `SysUserTable` | **Новая** — пользователи с хешем пароля |
+| `SysUserDataArea` | **Новая** — матрица прав CRUD (User × DataArea) |
+| `TimelineTable` | `+ DataAreaId` |
+| `EventTable` | `+ DataAreaId` |
+| `TagTable` | `+ DataAreaId` |
+| `DocumentTable` | `+ DataAreaId` |
+| `EventTimelineLink` | `+ DataAreaId` (персональная область создателя связи) |
+| `TagEventLink` | `+ DataAreaId` (персональная область создателя связи) |
+| `DocumentEventLink` | `+ DataAreaId` (персональная область создателя связи) |
+| `UserPreferences` | `+ DataAreaId` |
+
+**Примечание:** связи `EventTimelineLink`, `TagEventLink`, `DocumentEventLink` создаются в **персональной области** пользователя, который их создаёт. Таким образом, если у него заберут права на чтение целевой области (например, чужого таймлайна), его собственные связи всё равно останутся в его DataArea, но при отображении UI будет фильтровать — не показывать связи на недоступные данные.
