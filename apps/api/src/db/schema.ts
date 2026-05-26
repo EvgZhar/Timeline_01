@@ -1,36 +1,35 @@
-import { sql } from "drizzle-orm";
-import { integer, sqliteTable, text, uniqueIndex, primaryKey } from "drizzle-orm/sqlite-core";
+import { boolean, date, integer, pgTable, serial, text, timestamp, uniqueIndex, primaryKey, varchar } from "drizzle-orm/pg-core";
 
 // ── Multi-user / Data Area tables ──
 
-export const sysDataAreaTable = sqliteTable("SysDataAreaTable", {
-  id: integer("Id").primaryKey({ autoIncrement: true }),
-  name: text("Name", { length: 100 }).notNull(),
-  description: text("Description", { length: 255 }),
-  isPersonal: integer("IsPersonal", { mode: "boolean" }).notNull().default(false),
-  createdAt: text("CreatedAt")
+export const sysDataAreaTable = pgTable("SysDataAreaTable", {
+  id: serial("Id").primaryKey(),
+  name: varchar("Name", { length: 100 }).notNull(),
+  description: varchar("Description", { length: 255 }),
+  isPersonal: boolean("IsPersonal").notNull().default(false),
+  createdAt: timestamp("CreatedAt", { withTimezone: true })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .defaultNow(),
 });
 
-export const sysUserTable = sqliteTable("SysUserTable", {
-  id: integer("Id").primaryKey({ autoIncrement: true }),
-  login: text("Login", { length: 50 }).notNull().unique(),
-  email: text("Email", { length: 255 }).notNull().unique(),
+export const sysUserTable = pgTable("SysUserTable", {
+  id: serial("Id").primaryKey(),
+  login: varchar("Login", { length: 50 }).notNull().unique(),
+  email: varchar("Email", { length: 255 }).notNull().unique(),
   passwordHash: text("PasswordHash").notNull(),
-  firstName: text("FirstName", { length: 100 }),
-  lastName: text("LastName", { length: 100 }),
-  isActive: integer("IsActive", { mode: "boolean" }).notNull().default(true),
-  emailConfirmed: integer("EmailConfirmed", { mode: "boolean" }).notNull().default(false),
+  firstName: varchar("FirstName", { length: 100 }),
+  lastName: varchar("LastName", { length: 100 }),
+  isActive: boolean("IsActive").notNull().default(true),
+  emailConfirmed: boolean("EmailConfirmed").notNull().default(false),
   defaultDataAreaId: integer("DefaultDataAreaId")
     .notNull()
     .references(() => sysDataAreaTable.id),
-  createdAt: text("CreatedAt")
+  createdAt: timestamp("CreatedAt", { withTimezone: true })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .defaultNow(),
 });
 
-export const sysUserDataArea = sqliteTable(
+export const sysUserDataArea = pgTable(
   "SysUserDataArea",
   {
     userId: integer("UserId")
@@ -39,15 +38,15 @@ export const sysUserDataArea = sqliteTable(
     dataAreaId: integer("DataAreaId")
       .notNull()
       .references(() => sysDataAreaTable.id, { onDelete: "cascade" }),
-    canCreate: integer("CanCreate", { mode: "boolean" }).notNull().default(false),
-    canRead: integer("CanRead", { mode: "boolean" }).notNull().default(false),
-    canUpdate: integer("CanUpdate", { mode: "boolean" }).notNull().default(false),
-    canDelete: integer("CanDelete", { mode: "boolean" }).notNull().default(false),
+    canCreate: boolean("CanCreate").notNull().default(false),
+    canRead: boolean("CanRead").notNull().default(false),
+    canUpdate: boolean("CanUpdate").notNull().default(false),
+    canDelete: boolean("CanDelete").notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.userId, t.dataAreaId] })],
 );
 
-export const sysUserSettingsTable = sqliteTable("SysUserSettingsTable", {
+export const sysUserSettingsTable = pgTable("SysUserSettingsTable", {
   userId: integer("UserId")
     .notNull()
     .primaryKey()
@@ -55,38 +54,38 @@ export const sysUserSettingsTable = sqliteTable("SysUserSettingsTable", {
   currentDataAreaId: integer("CurrentDataAreaId")
     .notNull()
     .references(() => sysDataAreaTable.id),
-  updatedAt: text("UpdatedAt")
+  updatedAt: timestamp("UpdatedAt", { withTimezone: true })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .defaultNow(),
 });
 
 // ── Domain tables (with DataAreaId) ──
 
-export const timelineTable = sqliteTable("TimelineTable", {
-  id: integer("Id").primaryKey({ autoIncrement: true }),
-  name: text("Name", { length: 60 }).notNull(),
-  description: text("Description", { length: 255 }),
+export const timelineTable = pgTable("TimelineTable", {
+  id: serial("Id").primaryKey(),
+  name: varchar("Name", { length: 60 }).notNull(),
+  description: varchar("Description", { length: 255 }),
   iconUrl: text("IconUrl"),
   sortIndex: integer("SortIndex").default(0),
   dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
-  createdDateTime: text("CreatedDateTime")
+  createdDateTime: timestamp("CreatedDateTime", { withTimezone: true })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .defaultNow(),
 });
 
-export const eventTable = sqliteTable("EventTable", {
-  id: integer("Id").primaryKey({ autoIncrement: true }),
-  name: text("Name", { length: 255 }).notNull(),
-  startDate: text("StartDate").notNull(),
-  endDate: text("EndDate"),
+export const eventTable = pgTable("EventTable", {
+  id: serial("Id").primaryKey(),
+  name: varchar("Name", { length: 255 }).notNull(),
+  startDate: date("StartDate").notNull(),
+  endDate: date("EndDate"),
   notes: text("Notes"),
   dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
-  createdDateTime: text("CreatedDateTime")
+  createdDateTime: timestamp("CreatedDateTime", { withTimezone: true })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .defaultNow(),
 });
 
-export const eventTimelineLink = sqliteTable(
+export const eventTimelineLink = pgTable(
   "EventTimelineLink",
   {
     eventId: integer("EventId")
@@ -95,27 +94,27 @@ export const eventTimelineLink = sqliteTable(
     timelineId: integer("TimelineId")
       .notNull()
       .references(() => timelineTable.id, { onDelete: "cascade" }),
-    description: text("Description", { length: 60 }),
+    description: varchar("Description", { length: 60 }),
     dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
-    createdDateTime: text("CreatedDateTime")
+    createdDateTime: timestamp("CreatedDateTime", { withTimezone: true })
       .notNull()
-      .default(sql`(datetime('now'))`),
+      .defaultNow(),
   },
   (t) => [uniqueIndex("EventTimelineLink_unique").on(t.eventId, t.timelineId)],
 );
 
-export const tagTable = sqliteTable("TagTable", {
-  id: integer("Id").primaryKey({ autoIncrement: true }),
-  name: text("Name", { length: 40 }).notNull(),
+export const tagTable = pgTable("TagTable", {
+  id: serial("Id").primaryKey(),
+  name: varchar("Name", { length: 40 }).notNull(),
   color: integer("Color").notNull(),
   previewUrl: text("PreviewUrl"),
   dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
-  createdDateTime: text("CreatedDateTime")
+  createdDateTime: timestamp("CreatedDateTime", { withTimezone: true })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .defaultNow(),
 });
 
-export const tagEventLink = sqliteTable(
+export const tagEventLink = pgTable(
   "TagEventLink",
   {
     eventId: integer("EventId")
@@ -125,26 +124,26 @@ export const tagEventLink = sqliteTable(
       .notNull()
       .references(() => tagTable.id, { onDelete: "cascade" }),
     dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
-    createdDateTime: text("CreatedDateTime")
+    createdDateTime: timestamp("CreatedDateTime", { withTimezone: true })
       .notNull()
-      .default(sql`(datetime('now'))`),
+      .defaultNow(),
   },
   (t) => [uniqueIndex("TagEventLink_unique").on(t.eventId, t.tagId)],
 );
 
-export const documentTable = sqliteTable("DocumentTable", {
-  documentId: integer("DocumentId").primaryKey({ autoIncrement: true }),
-  description: text("Description", { length: 255 }).notNull(),
-  originalLink: text("OriginalLink", { length: 1200 }),
-  storageLink: text("StorageLink", { length: 1200 }),
-  resourceType: text("ResourceType", { length: 100 }),
+export const documentTable = pgTable("DocumentTable", {
+  documentId: serial("DocumentId").primaryKey(),
+  description: varchar("Description", { length: 255 }).notNull(),
+  originalLink: varchar("OriginalLink", { length: 1200 }),
+  storageLink: varchar("StorageLink", { length: 1200 }),
+  resourceType: varchar("ResourceType", { length: 100 }),
   dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
-  createdDateTime: text("CreatedDateTime")
+  createdDateTime: timestamp("CreatedDateTime", { withTimezone: true })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .defaultNow(),
 });
 
-export const documentEventLink = sqliteTable(
+export const documentEventLink = pgTable(
   "DocumentEventLink",
   {
     eventId: integer("EventId")
@@ -153,31 +152,31 @@ export const documentEventLink = sqliteTable(
     documentId: integer("DocumentId")
       .notNull()
       .references(() => documentTable.documentId, { onDelete: "cascade" }),
-    isPrimary: integer("IsPrimary", { mode: "boolean" }).notNull().default(false),
+    isPrimary: boolean("IsPrimary").notNull().default(false),
     dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
-    createdDateTime: text("CreatedDateTime")
+    createdDateTime: timestamp("CreatedDateTime", { withTimezone: true })
       .notNull()
-      .default(sql`(datetime('now'))`),
+      .defaultNow(),
   },
   (t) => [uniqueIndex("DocumentEventLink_unique").on(t.eventId, t.documentId)],
 );
 
-export const userPreferences = sqliteTable("UserPreferences", {
-  id: integer("Id").primaryKey({ autoIncrement: true }),
+export const userPreferences = pgTable("UserPreferences", {
+  id: serial("Id").primaryKey(),
   userId: integer("UserId").references(() => sysUserTable.id, {
     onDelete: "cascade",
   }),
   timelineId: integer("TimelineId").references(() => timelineTable.id, {
     onDelete: "cascade",
   }),
-  visible: integer("Visible", { mode: "boolean" }).notNull().default(true),
+  visible: boolean("Visible").notNull().default(true),
 });
 
-export const appSettings = sqliteTable("AppSettings", {
+export const appSettings = pgTable("AppSettings", {
   key: text("Key").primaryKey(),
   value: text("Value").notNull(),
-  isSecret: integer("IsSecret", { mode: "boolean" }).notNull().default(false),
-  updatedAt: text("UpdatedAt")
+  isSecret: boolean("IsSecret").notNull().default(false),
+  updatedAt: timestamp("UpdatedAt", { withTimezone: true })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .defaultNow(),
 });

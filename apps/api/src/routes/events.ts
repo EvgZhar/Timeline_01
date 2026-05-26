@@ -110,11 +110,12 @@ eventsRouter.put("/:id", authenticate, async (req, res, next) => {
           }
         }
         for (const link of removedTimelineIds) {
-          const areaId = link.dataAreaId ?? (await db
+          const [tlRow] = await db
             .select({ dataAreaId: timelineTable.dataAreaId })
             .from(timelineTable)
             .where(eq(timelineTable.id, link.timelineId))
-            .limit(1))?.dataAreaId ?? null;
+            .limit(1);
+          const areaId = link.dataAreaId ?? tlRow?.dataAreaId ?? null;
           if (areaId && !(await checkPermission(req.user!.userId, areaId, "canDelete"))) {
             res.status(403).json({ error: `Нет права на удаление связи с таймлайном ${link.timelineId}` });
             return;
@@ -141,11 +142,12 @@ eventsRouter.put("/:id", authenticate, async (req, res, next) => {
           }
         }
         for (const link of removedTagIds) {
-          const areaId = link.dataAreaId ?? (await db
+          const [tgRow] = await db
             .select({ dataAreaId: tagTable.dataAreaId })
             .from(tagTable)
             .where(eq(tagTable.id, link.tagId))
-            .limit(1))?.dataAreaId ?? null;
+            .limit(1);
+          const areaId = link.dataAreaId ?? tgRow?.dataAreaId ?? null;
           if (areaId && !(await checkPermission(req.user!.userId, areaId, "canDelete"))) {
             res.status(403).json({ error: `Нет права на удаление связи с тегом ${link.tagId}` });
             return;

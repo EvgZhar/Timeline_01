@@ -10,7 +10,7 @@ function toDto(row: typeof tagTable.$inferSelect): TagDto {
     color: row.color,
     previewUrl: row.previewUrl ?? undefined,
     dataAreaId: row.dataAreaId,
-    createdDateTime: row.createdDateTime,
+    createdDateTime: row.createdDateTime?.toISOString() ?? new Date().toISOString(),
   };
 }
 

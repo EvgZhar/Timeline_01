@@ -65,10 +65,28 @@ async function loadEventRelations(eventIds: number[]): Promise<{
           .where(inArray(documentEventLink.eventId, eventIds))
       : [];
 
-  const documents = new Map<number, (typeof docLinks)[number][]>();
+  const documents = new Map<number, {
+    documentId: number;
+    description: string;
+    originalLink: string | null;
+    storageLink: string | null;
+    resourceType: string | null;
+    isPrimary: boolean;
+    createdDateTime: string;
+    eventId: number;
+  }[]>();
   for (const d of docLinks) {
     const arr = documents.get(d.eventId) ?? [];
-    arr.push(d);
+    arr.push({
+      eventId: d.eventId,
+      documentId: d.documentId,
+      description: d.description,
+      originalLink: d.originalLink,
+      storageLink: d.storageLink,
+      resourceType: d.resourceType,
+      isPrimary: d.isPrimary,
+      createdDateTime: d.createdDateTime?.toISOString() ?? new Date().toISOString(),
+    });
     documents.set(d.eventId, arr);
   }
 
@@ -80,7 +98,7 @@ async function loadEventRelations(eventIds: number[]): Promise<{
       name: t.name,
       color: t.color,
       previewUrl: t.previewUrl,
-      createdDateTime: t.createdDateTime,
+      createdDateTime: t.createdDateTime?.toISOString() ?? new Date().toISOString(),
     });
     tagMap.set(t.eventId, arr);
   }
@@ -99,7 +117,7 @@ function toDto(
     endDate: row.endDate ?? row.startDate,
     notes: row.notes,
     dataAreaId: row.dataAreaId,
-    createdDateTime: row.createdDateTime,
+    createdDateTime: row.createdDateTime?.toISOString() ?? new Date().toISOString(),
     timelines: rel.timelines.get(row.id) ?? [],
     tags: (rel.tags.get(row.id) ?? []).map((t) => ({
       id: t.id,
@@ -246,5 +264,5 @@ export async function deleteEvent(id: number): Promise<boolean> {
   }
 
   const r = await db.delete(eventTable).where(eq(eventTable.id, id));
-  return r.changes > 0;
+  return (r.rowCount ?? 0) > 0;
 }

@@ -1,6 +1,7 @@
 node_modules
 dist
 data
+!data/db-info.md
 uploads
 *.db
 .env

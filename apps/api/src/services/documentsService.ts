@@ -53,7 +53,7 @@ export async function listDocuments(eventId: number): Promise<DocumentDto[]> {
       storageLink: r.storageLink,
       resourceType: r.resourceType,
       isPrimary: r.isPrimary,
-      createdDateTime: r.createdDateTime,
+      createdDateTime: r.createdDateTime?.toISOString() ?? new Date().toISOString(),
       previewUrl:
         r.storageLink && r.resourceType === "image"
           ? `/api/documents/${r.documentId}/preview`
@@ -91,7 +91,7 @@ export async function createFromUrl(
     storageLink: doc.storageLink,
     resourceType: doc.resourceType,
     isPrimary,
-    createdDateTime: doc.createdDateTime,
+    createdDateTime: doc.createdDateTime?.toISOString() ?? new Date().toISOString(),
     previewUrl: originalLink,
   };
 }
@@ -134,7 +134,7 @@ export async function createFromUpload(
     storageLink: doc.storageLink,
     resourceType: doc.resourceType,
     isPrimary,
-    createdDateTime: doc.createdDateTime,
+    createdDateTime: doc.createdDateTime?.toISOString() ?? new Date().toISOString(),
     previewUrl: `/api/documents/${doc.documentId}/preview`,
   };
 }
@@ -198,7 +198,7 @@ export async function deleteDocument(documentId: number): Promise<boolean> {
       await setPrimary(remaining[0].documentId);
     }
   }
-  return r.changes > 0;
+  return (r.rowCount ?? 0) > 0;
 }
 
 export async function countDocumentsForEvent(eventId: number): Promise<number> {

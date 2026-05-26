@@ -30,7 +30,7 @@ export async function listTimelines(userId: number, allowedDataAreaIds: number[]
     sortIndex: t.sortIndex ?? 0,
     visible: prefMap.get(t.id) ?? true,
     dataAreaId: t.dataAreaId,
-    createdDateTime: t.createdDateTime,
+    createdDateTime: t.createdDateTime?.toISOString() ?? new Date().toISOString(),
   }));
 }
 
@@ -55,7 +55,7 @@ export async function createTimeline(name: string, userId: number, description?:
     sortIndex: row.sortIndex ?? 0,
     visible: true,
     dataAreaId: row.dataAreaId,
-    createdDateTime: row.createdDateTime,
+    createdDateTime: row.createdDateTime?.toISOString() ?? new Date().toISOString(),
   };
 }
 
@@ -77,13 +77,13 @@ export async function updateTimeline(
     sortIndex: row.sortIndex ?? 0,
     visible: true,
     dataAreaId: row.dataAreaId,
-    createdDateTime: row.createdDateTime,
+    createdDateTime: row.createdDateTime?.toISOString() ?? new Date().toISOString(),
   };
 }
 
 export async function deleteTimeline(id: number): Promise<boolean> {
   const r = await db.delete(timelineTable).where(eq(timelineTable.id, id));
-  return r.changes > 0;
+  return (r.rowCount ?? 0) > 0;
 }
 
 export async function setVisibility(timelineId: number, userId: number, visible: boolean): Promise<void> {

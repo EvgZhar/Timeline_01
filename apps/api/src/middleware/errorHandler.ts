@@ -18,7 +18,11 @@ export function errorHandler(
   }
   if (err instanceof Error) {
     console.error(err);
-    res.status(500).json({ error: err.message || "Внутренняя ошибка сервера" });
+    const causeMessage = (err as { cause?: Error }).cause?.message;
+    res.status(500).json({
+      error: err.message || "Внутренняя ошибка сервера",
+      ...(causeMessage ? { cause: causeMessage } : {}),
+    });
     return;
   }
   res.status(500).json({ error: "Внутренняя ошибка сервера" });

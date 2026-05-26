@@ -7,9 +7,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "DATABASE_URL=../../data/timeline.db tsx src/db/migrate.ts",
-    "db:seed": "DATABASE_URL=../../data/timeline.db tsx src/db/seed.ts",
-    "dev": "DATABASE_URL=../../data/timeline.db tsx watch src/index.ts"
+    "db:migrate": "node --env-file=../../.env ../../node_modules/.bin/tsx src/db/migrate.ts",
+    "db:seed": "node --env-file=../../.env ../../node_modules/.bin/tsx src/db/seed.ts",
+    "dev": "node --env-file=../../.env ../../node_modules/.bin/tsx watch src/index.ts"
   },
   "dependencies": {
     "@timeline/shared": "*",
@@ -19,6 +19,7 @@
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "multer": "^1.4.5-lts.2",
+    "pg": "^8.21.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -27,6 +28,7 @@
     "@types/express": "^5.0.1",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.14.1",
+    "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3"

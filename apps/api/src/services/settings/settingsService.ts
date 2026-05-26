@@ -56,14 +56,14 @@ export async function putSettings(
         key,
         value: stored,
         isSecret,
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date(),
       })
       .onConflictDoUpdate({
         target: appSettings.key,
         set: {
           value: stored,
           isSecret,
-          updatedAt: new Date().toISOString(),
+          updatedAt: new Date(),
         },
       });
   }

@@ -1,1 +1,0 @@
-ALTER TABLE `DocumentEventLink` ADD `IsPrimary` integer DEFAULT false NOT NULL;

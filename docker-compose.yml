@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: timeline-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: timeline
+      POSTGRES_USER: timeline
+      POSTGRES_PASSWORD: password
+    volumes:
+      - ./data/pgdata:/var/lib/postgresql/data

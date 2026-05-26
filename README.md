@@ -6,20 +6,22 @@
 
 - **Монорепозиторий:** npm workspaces
 - **Shared:** `packages/shared` — TypeScript-типы и схемы валидации (Zod)
-- **API:** `apps/api` — Express 5, Drizzle ORM, SQLite (better-sqlite3)
+- **API:** `apps/api` — Express 5, Drizzle ORM, PostgreSQL (pg)
 - **Web:** `apps/web` — React, Vite, TypeScript, Tailwind CSS, TanStack Query, react-router-dom
 - **Файлы:** Yandex Disk API
 - **Аутентификация:** JWT (HMAC-SHA256) + scrypt (Node.js crypto)
+- **СУБД:** PostgreSQL 17 (Docker)
 
 ## Быстрый старт
 
 ```bash
 cp .env.example .env
+docker compose up -d                    # Запустить PostgreSQL
 npm install
 npm run build -w @timeline/shared
-npm run db:generate -w @timeline/api
-npm run db:migrate
-npm run db:seed
+npm run db:generate -w @timeline/api    # Сгенерировать миграции из схемы
+npm run db:migrate                      # Применить миграции
+npm run db:seed                         # Seed: Default DataArea + admin + testuser
 npm run dev
 ```
 
@@ -33,6 +35,16 @@ npm run dev
 | `admin` | `admin` | Администратор, полный доступ ко всем DataArea |
 | `testuser` | `test1234` | Обычный пользователь, личная DataArea + чтение Default |
 
+## Миграция с SQLite на PostgreSQL
+
+Если у вас есть существующие данные в `data/timeline.db`:
+
+1. Запустите PostgreSQL: `docker compose up -d`
+2. Примените миграции: `npm run db:migrate`
+3. Запустите перенос данных: `npx tsx apps/api/src/db/migrate-sqlite-to-pg.ts`
+
+SQLite-файл остаётся нетронутым — в случае проблем верните `DATABASE_URL` в `.env` на `./data/timeline.db`.
+
 ## Структура проекта
 
 ```
@@ -41,7 +53,10 @@ apps/
   web/        — React-фронтенд
 packages/
   shared/     — Общие типы и схемы
-data/         — SQLite БД и persisted JWT-секрет
+data/
+  db-info.md  — Учётные данные PostgreSQL
+  pgdata/     — Файлы БД PostgreSQL (Docker bind mount)
+  timeline.db — Старая SQLite БД (для отката)
 ```
 
 ## Data Areas (области данных)
@@ -94,14 +109,6 @@ npm run db:migrate                      # Применить миграции
 npm run db:seed                         # Seed: Default DataArea + admin + testuser
 ```
 
-При наличии существующих данных (до внедрения multi-user) запустите скрипт миграции данных:
-
-```bash
-npx tsx apps/api/src/db/migrate-data.ts
-```
-
-Он создаст Default DataArea, привяжет к ней все существующие записи и создаст учётную запись администратора.
-
 ## Настройка Яндекс.Диска
 
 1. Создайте приложение на https://oauth.yandex.com/
@@ -112,7 +119,7 @@ npx tsx apps/api/src/db/migrate-data.ts
 
 | Переменная | Описание |
 |------------|----------|
-| `DATABASE_URL` | Путь к SQLite (по умолчанию `./data/timeline.db`) |
+| `DATABASE_URL` | Строка подключения к PostgreSQL (по умолч. `postgresql://timeline:password@localhost:5432/timeline`) |
 | `PORT` | Порт API (3001) |
 | `JWT_SECRET` | Ключ для подписи JWT (авто-генерация + сохранение в `data/.jwt_secret`) |
 | `SETTINGS_ENCRYPTION_KEY` | 64 hex-символа для шифрования секретов в БД |

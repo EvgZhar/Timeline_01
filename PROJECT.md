@@ -7,9 +7,9 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 ```
 /
 ├── apps/
-│   ├── api/          # Express 5 + Drizzle ORM + SQLite
+│   ├── api/          # Express 5 + Drizzle ORM + PostgreSQL
 │   │   ├── src/
-│   │   │   ├── db/          # schema, migrate, seed
+│   │   │   ├── db/          # schema, migrate, seed, migrate-sqlite-to-pg
 │   │   │   ├── routes/      # Express routers
 │   │   │   ├── services/    # Business logic
 │   │   │   └── integrations/ # Yandex Disk client
@@ -22,7 +22,11 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 │           └── api/          # API client
 ├── packages/
 │   └── shared/       # Shared types, Zod schemas, date utils
-├── data/             # SQLite database files (git-ignored)
+├── data/
+│   ├── db-info.md    # PostgreSQL credentials
+│   ├── pgdata/       # PostgreSQL data files (Docker bind mount, git-ignored)
+│   └── timeline.db   # Old SQLite DB (for rollback, git-ignored)
+├── docker-compose.yml # PostgreSQL 17
 ├── .env              # Local env vars (git-ignored)
 ├── .env.example      # Template for .env
 ├── package.json      # Root scripts (dev, build, db:*)
@@ -30,16 +34,16 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 ```
 
 ## Database
-- **Engine:** SQLite (via `better-sqlite3` + Drizzle ORM)
-- **Location:** `data/timeline.db` (relative to project root)
-- **Config:** `DATABASE_URL` env var (`./data/timeline.db` by default)
-- **Git:** `data/`, `*.db` are in `.gitignore` — not committed
-- **Auto-create:** `data/` folder is created automatically by `migrate.ts`
-- **Path resolution:** In `apps/api/` dev scripts, `DATABASE_URL=../../data/timeline.db` points to root `data/`
+- **Engine:** PostgreSQL 17 (via `pg` + Drizzle ORM)
+- **Location:** Docker container, data in `data/pgdata/` (bind mount)
+- **Config:** `DATABASE_URL` env var (`postgresql://timeline:password@localhost:5432/timeline` by default)
+- **Git:** `data/` is in `.gitignore` — database files not committed
+- **Start:** `docker compose up -d`
 
 ## Environment setup
 ```bash
 cp .env.example .env
+docker compose up -d
 npm install
 npm run build -w @timeline/shared
 npm run db:generate -w @timeline/api
@@ -65,6 +69,8 @@ npm run dev
 5. **Always run `npx tsc --noEmit -p apps/web/tsconfig.json`** after changes
 6. **Never commit** `.env`, `data/`, `node_modules/`
 7. **DB migrations** are generated into `apps/api/drizzle/` — these are committed to Git
+8. **PostgreSQL** runs via Docker: `docker compose up -d` before `npm run db:migrate`
+9. **Delete result** in pg returns `rowCount` (not `changes` as in SQLite)
 
 ## URL references
 - Web UI: http://localhost:5173
