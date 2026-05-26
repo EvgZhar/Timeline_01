@@ -11,8 +11,7 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 │   │   ├── src/
 │   │   │   ├── db/          # schema, migrate, seed, migrate-sqlite-to-pg
 │   │   │   ├── routes/      # Express routers
-│   │   │   ├── services/    # Business logic
-│   │   │   └── integrations/ # Yandex Disk client
+│   │   │   └── services/    # Business logic
 │   │   ├── drizzle/         # Migration files (generated)
 │   │   └── drizzle.config.ts
 │   └── web/          # React 19 + Vite + Tailwind + Radix UI
@@ -35,6 +34,7 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 
 ## Database
 - **Engine:** PostgreSQL 17 (via `pg` + Drizzle ORM)
+- **Tables:** `SysDataAreaTable`, `SysUserTable`, `SysUserDataArea`, `SysUserSettingsTable`, `SysCounterTable` (auto‑numbering counters), `TimelineTable`, `EventTable`, `EventTimelineLink`, `TagTable`, `TagEventLink`, `DocumentTable`, `DocumentEventLink`, `UserPreferences`, `AppSettings`
 - **Location:** Docker container, data in `data/pgdata/` (bind mount)
 - **Config:** `DATABASE_URL` env var (`postgresql://timeline:password@localhost:5432/timeline` by default)
 - **Git:** `data/` is in `.gitignore` — database files not committed
@@ -61,6 +61,22 @@ npm run dev
 | `npm run db:migrate` | Apply pending migrations |
 | `npm run db:seed` | Seed database with test data |
 
+## Admin API routes (`/api/admin`)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/users` | GET | List all users (sorted by id ASC) |
+| `/users/:id` | PUT | Update user (name, email, active) |
+| `/users/:id/data-areas` | GET | User's data area IDs |
+| `/next-user-code` | GET | Next `U######` code from counter |
+| `/users/create` | POST | Create user (atomic counter inc + personal area + optional named) |
+| `/data-areas` | GET | List all data areas |
+| `/data-areas` | POST | Create data area |
+| `/data-areas/:id` | PUT | Update data area |
+| `/data-areas/:id` | DELETE | Delete data area (rejected if personal) |
+| `/data-areas/:id/users` | GET | Users + rights for a data area |
+| `/user-data-area` | POST | Set user rights on data area |
+| `/user-data-area` | DELETE | Remove user from data area |
+
 ## AI agent rules
 1. **DB schema** (`apps/api/src/db/schema.ts`) — change with care, always run `npm run db:generate` after any column/table change
 2. **Shared types** (`packages/shared/src/types.ts`) — update when adding new fields to DTOs
@@ -71,6 +87,7 @@ npm run dev
 7. **DB migrations** are generated into `apps/api/drizzle/` — these are committed to Git
 8. **PostgreSQL** runs via Docker: `docker compose up -d` before `npm run db:migrate`
 9. **Delete result** in pg returns `rowCount` (not `changes` as in SQLite)
+10. **Yandex Disk removed** — `createFromUpload` stores metadata without cloud upload; preview falls back to `originalLink`
 
 ## URL references
 - Web UI: http://localhost:5173

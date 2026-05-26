@@ -280,7 +280,7 @@ export function TagSearch({
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex items-center justify-between">
             <TooltipButton
               label="Применить фильтры"
               onClick={handleApply}

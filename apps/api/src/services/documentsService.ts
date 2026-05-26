@@ -1,17 +1,9 @@
 import { eq } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
 import { extname } from "node:path";
 import type { DocumentDto } from "@timeline/shared";
 import { db } from "../db/index.js";
 import { documentEventLink, documentTable } from "../db/schema.js";
-import {
-  buildEventFilePath,
-  ensureAppFolder,
-  getDownloadUrl,
-  upload,
-  deleteResource,
-} from "../integrations/yandex-disk/client.js";
-import { isYandexConfigured } from "../services/settings/settingsService.js";
+
 
 const MIME_MAP: Record<string, string> = {
   ".jpg": "image",
@@ -99,25 +91,18 @@ export async function createFromUrl(
 export async function createFromUpload(
   eventId: number,
   description: string,
-  buffer: Buffer,
+  _buffer: Buffer,
   filename: string,
   mime?: string,
   dataAreaId?: number | null,
 ): Promise<DocumentDto> {
-  if (!(await isYandexConfigured())) {
-    throw new Error("Настройте Яндекс.Диск в параметрах");
-  }
-  await ensureAppFolder();
   const ext = extname(filename) || ".bin";
-  const diskPath = await buildEventFilePath(eventId, `${randomUUID()}${ext}`);
-  await upload(diskPath, buffer, mime);
   const resourceType = detectType(filename, mime);
 
   const [doc] = await db
     .insert(documentTable)
     .values({
       description,
-      storageLink: diskPath,
       resourceType,
       dataAreaId,
     })
@@ -135,7 +120,7 @@ export async function createFromUpload(
     resourceType: doc.resourceType,
     isPrimary,
     createdDateTime: doc.createdDateTime?.toISOString() ?? new Date().toISOString(),
-    previewUrl: `/api/documents/${doc.documentId}/preview`,
+    previewUrl: doc.originalLink ?? undefined,
   };
 }
 
@@ -145,7 +130,6 @@ export async function getPreviewUrl(documentId: number): Promise<string | null> 
     .from(documentTable)
     .where(eq(documentTable.documentId, documentId));
   if (!doc) return null;
-  if (doc.storageLink) return getDownloadUrl(doc.storageLink);
   return doc.originalLink;
 }
 
@@ -182,13 +166,6 @@ export async function deleteDocument(documentId: number): Promise<boolean> {
     .from(documentTable)
     .where(eq(documentTable.documentId, documentId));
   if (!doc) return false;
-  if (doc.storageLink) {
-    try {
-      await deleteResource(doc.storageLink);
-    } catch (e) {
-      console.warn("Yandex delete failed:", e);
-    }
-  }
   const r = await db.delete(documentTable).where(eq(documentTable.documentId, documentId));
   const wasPrimary = link?.isPrimary;
   const eventId = link?.eventId;

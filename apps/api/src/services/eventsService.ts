@@ -10,7 +10,6 @@ import {
   tagTable,
   timelineTable,
 } from "../db/schema.js";
-import { deleteResource } from "../integrations/yandex-disk/client.js";
 import { getTimelineIdsForEvents } from "./timelinesService.js";
 
 async function loadEventRelations(eventIds: number[]): Promise<{
@@ -247,22 +246,6 @@ async function syncEventLinks(eventId: number, data: EventCreate): Promise<void>
 }
 
 export async function deleteEvent(id: number): Promise<boolean> {
-  const docs = await db
-    .select({ storageLink: documentTable.storageLink })
-    .from(documentEventLink)
-    .innerJoin(documentTable, eq(documentEventLink.documentId, documentTable.documentId))
-    .where(eq(documentEventLink.eventId, id));
-
-  for (const d of docs) {
-    if (d.storageLink) {
-      try {
-        await deleteResource(d.storageLink);
-      } catch (e) {
-        console.warn("Yandex delete failed:", e);
-      }
-    }
-  }
-
   const r = await db.delete(eventTable).where(eq(eventTable.id, id));
   return (r.rowCount ?? 0) > 0;
 }

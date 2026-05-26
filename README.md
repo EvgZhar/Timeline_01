@@ -8,7 +8,6 @@
 - **Shared:** `packages/shared` — TypeScript-типы и схемы валидации (Zod)
 - **API:** `apps/api` — Express 5, Drizzle ORM, PostgreSQL (pg)
 - **Web:** `apps/web` — React, Vite, TypeScript, Tailwind CSS, TanStack Query, react-router-dom
-- **Файлы:** Yandex Disk API
 - **Аутентификация:** JWT (HMAC-SHA256) + scrypt (Node.js crypto)
 - **СУБД:** PostgreSQL 17 (Docker)
 
@@ -97,9 +96,18 @@ data/
 
 `/admin` (доступна пользователю с логином `admin`):
 
-- Управление пользователями (редактирование имени, email, блокировка)
-- Управление DataArea и правами пользователей на них
-- Назначение прав (canRead/canCreate/canUpdate/canDelete) для каждой пары пользователь-область
+- **Пользователи:**
+  - Поиск по полю (фамилия/имя/email/логин)
+  - Создание: автонумерация кода (`sysCounterTable`, формат `U######`), код и название области данных — read-only с сервера, подтверждение пароля
+  - Inline-редактирование (имя, email) + чекбоксы доступа к DataArea
+  - Сортировка по id (возрастание)
+  - Кнопки: Save слева, Cancel справа
+- **DataArea:**
+  - Поиск по имени/описанию
+  - Inline-редактирование (rename)
+  - Удаление с подтверждением (защита от удаления personal area)
+  - Кнопки: Save слева, Cancel/Delete справа
+- **Права:** управление (canRead/canCreate/canUpdate/canDelete) для каждой пары пользователь-область
 
 ## Миграции
 
@@ -108,12 +116,6 @@ npm run db:generate -w @timeline/api   # Сгенерировать миграц
 npm run db:migrate                      # Применить миграции
 npm run db:seed                         # Seed: Default DataArea + admin + testuser
 ```
-
-## Настройка Яндекс.Диска
-
-1. Создайте приложение на https://oauth.yandex.com/
-2. Получите OAuth-токен с правами `cloud_api:disk.read` и `cloud_api:disk.write`
-3. В приложении откройте **Настройки** и сохраните токен и папку (по умолчанию `app:/timeline/`)
 
 ## Переменные окружения
 

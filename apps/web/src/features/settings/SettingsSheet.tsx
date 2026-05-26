@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDisplay } from "@timeline/shared";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
-import { Check, Eraser, ImageOff, Link2, Pencil, Plus, Save, Wifi, X } from "lucide-react";
+import { Check, Eraser, ImageOff, Link2, Pencil, Plus, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import type { ViewRange } from "@/features/timeline/timeScale";
 import type { TagDto } from "@timeline/shared";
@@ -21,7 +21,7 @@ interface SettingsSheetProps {
 
 function msToDisplay(ms: number): string {
   const d = new Date(ms);
-  const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  const iso = `${String(d.getUTCFullYear()).padStart(4, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
   return formatDisplay(iso);
 }
 
@@ -34,11 +34,10 @@ function intToHex(color: number): string {
   return "#" + color.toString(16).padStart(6, "0");
 }
 
-type TabId = "yandex" | "interface" | "tags";
+type TabId = "interface" | "tags";
 
 function TabBar({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {
   const tabs: { id: TabId; label: string }[] = [
-    { id: "yandex", label: "Яндекс.Диск" },
     { id: "interface", label: "Интерфейс" },
     { id: "tags", label: "Теги" },
   ];
@@ -73,13 +72,8 @@ export function SettingsSheet({
   onClearSettings,
 }: SettingsSheetProps) {
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<TabId>("yandex");
+  const [activeTab, setActiveTab] = useState<TabId>("interface");
 
-  const { data } = useQuery({
-    queryKey: ["settings"],
-    queryFn: api.settings.get,
-    enabled: open,
-  });
   const { data: allTimelines = [] } = useQuery({
     queryKey: ["timelines"],
     queryFn: api.timelines.list,
@@ -91,10 +85,6 @@ export function SettingsSheet({
     enabled: open,
   });
 
-  const [token, setToken] = useState("");
-  const [baseFolder, setBaseFolder] = useState("app:/timeline/");
-  const [testResult, setTestResult] = useState<string | null>(null);
-
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#3b82f6");
   const [newTagPreview, setNewTagPreview] = useState("");
@@ -103,31 +93,6 @@ export function SettingsSheet({
   const [editHex, setEditHex] = useState("#3b82f6");
   const [editPreviewUrl, setEditPreviewUrl] = useState("");
   const colorRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (data?.settings) {
-      const bf = data.settings["yandex.baseFolder"];
-      if (typeof bf === "string") setBaseFolder(bf);
-    }
-  }, [data]);
-
-  const saveMut = useMutation({
-    mutationFn: () =>
-      api.settings.put({
-        ...(token.trim() ? { "yandex.oauthToken": token.trim() } : {}),
-        "yandex.baseFolder": baseFolder,
-      }),
-    onSuccess: () => {
-      setToken("");
-      qc.invalidateQueries({ queryKey: ["settings"] });
-    },
-  });
-
-  const testMut = useMutation({
-    mutationFn: api.settings.testYandex,
-    onSuccess: (r) => setTestResult(`OK: ${r.folder}`),
-    onError: (e: Error) => setTestResult(`Ошибка: ${e.message}`),
-  });
 
   const createTagMut = useMutation({
     mutationFn: () =>
@@ -163,10 +128,6 @@ export function SettingsSheet({
     },
   });
 
-  const tokenConfigured =
-    data?.settings["yandex.oauthToken"] &&
-    typeof data.settings["yandex.oauthToken"] === "object";
-
   const visibleTimelinesCount = allTimelines.filter((t) => t.visible).length;
 
   const hasSavedSettings = Boolean(
@@ -176,50 +137,6 @@ export function SettingsSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange} side="right" title="Настройки">
       <TabBar active={activeTab} onChange={setActiveTab} />
-
-      {activeTab === "yandex" && (
-        <section className="space-y-4">
-          <h3 className="font-medium">Яндекс.Диск</h3>
-          <p className="text-xs text-slate-500">
-            OAuth-токен с правами cloud_api:disk.read и cloud_api:disk.write
-          </p>
-          <label className="block text-sm">
-            OAuth-токен
-            <input
-              type="password"
-              className="mt-1 w-full rounded border px-2 py-1"
-              placeholder={tokenConfigured ? "•••••••• (задан)" : "Вставьте токен"}
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
-          </label>
-          <label className="block text-sm">
-            Папка на Диске
-            <input
-              className="mt-1 w-full rounded border px-2 py-1"
-              value={baseFolder}
-              onChange={(e) => setBaseFolder(e.target.value)}
-            />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <TooltipButton
-              label="Сохранить настройки"
-              onClick={() => saveMut.mutate()}
-              className="rounded bg-blue-600 p-2 text-white"
-            >
-              <Save size={16} />
-            </TooltipButton>
-            <TooltipButton
-              label="Проверить подключение"
-              onClick={() => testMut.mutate()}
-              className="rounded border p-2"
-            >
-              <Wifi size={16} />
-            </TooltipButton>
-          </div>
-          {testResult && <p className="text-sm text-slate-600">{testResult}</p>}
-        </section>
-      )}
 
       {activeTab === "interface" && (
         <section className="space-y-3">

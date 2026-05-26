@@ -2,7 +2,7 @@
 const DISPLAY_RE = /^(\d{2})\.(\d{2})\.(\d{4})$/;
 
 /** Storage format: YYYY-MM-DD */
-const STORAGE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const STORAGE_RE = /^(\d+)-(\d{2})-(\d{2})$/;
 
 export interface HistoricalDate {
   year: number;

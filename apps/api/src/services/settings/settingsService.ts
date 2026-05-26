@@ -3,14 +3,9 @@ import { db } from "../../db/index.js";
 import { appSettings } from "../../db/schema.js";
 import { decrypt, encrypt, hasEncryptionKey } from "./crypto.js";
 
-const SECRET_KEYS = new Set([
-  "yandex.oauthToken",
-  "yandex.clientSecret",
-]);
+const SECRET_KEYS = new Set<string>([]);
 
-const DEFAULTS: Record<string, { value: string; isSecret: boolean }> = {
-  "yandex.baseFolder": { value: "app:/timeline/", isSecret: false },
-};
+const DEFAULTS: Record<string, { value: string; isSecret: boolean }> = {};
 
 export async function getSettings(): Promise<Record<string, string | { configured: true } | null>> {
   const rows = await db.select().from(appSettings);
@@ -70,15 +65,4 @@ export async function putSettings(
   return getSettings();
 }
 
-export async function getYandexBaseFolder(): Promise<string> {
-  const [row] = await db
-    .select()
-    .from(appSettings)
-    .where(eq(appSettings.key, "yandex.baseFolder"));
-  return row?.value ?? DEFAULTS["yandex.baseFolder"].value;
-}
 
-export async function isYandexConfigured(): Promise<boolean> {
-  const token = await getSecret("yandex.oauthToken");
-  return Boolean(token);
-}

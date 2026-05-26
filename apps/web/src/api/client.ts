@@ -1,6 +1,7 @@
 import type {
   AuthResponse,
   AuthSettingsDto,
+  CreateUserRequest,
   DataAreaDto,
   DocumentDto,
   EventDto,
@@ -11,7 +12,6 @@ import type {
   TimelineDto,
   UserDataAreaDto,
   UserDto,
-  YandexStatusDto,
 } from "@timeline/shared";
 
 function getToken(): string | null {
@@ -53,11 +53,20 @@ export const api = {
   admin: {
     users: {
       list: () => request<UserDto[]>("/api/admin/users"),
+      create: (body: CreateUserRequest) =>
+        request<UserDto>("/api/admin/users/create", { method: "POST", body: JSON.stringify(body) }),
       update: (id: number, body: Record<string, unknown>) =>
         request<UserDto>(`/api/admin/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+      dataAreas: (id: number) => request<number[]>(`/api/admin/users/${id}/data-areas`),
     },
+    nextUserCode: () => request<{ code: string; nextSerial: number }>("/api/admin/next-user-code"),
     dataAreas: {
       list: () => request<DataAreaDto[]>("/api/admin/data-areas"),
+      create: (body: { name: string; description?: string }) =>
+        request<DataAreaDto>("/api/admin/data-areas", { method: "POST", body: JSON.stringify(body) }),
+      update: (id: number, body: { name?: string; description?: string | null }) =>
+        request<DataAreaDto>(`/api/admin/data-areas/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+      delete: (id: number) => request<{ ok: boolean }>(`/api/admin/data-areas/${id}`, { method: "DELETE" }),
       users: (id: number) => request<UserDataAreaDto[]>(`/api/admin/data-areas/${id}/users`),
     },
     userDataArea: {
@@ -134,11 +143,6 @@ export const api = {
       request<SettingsDto>("/api/settings", {
         method: "PUT",
         body: JSON.stringify({ settings }),
-      }),
-    yandexStatus: () => request<YandexStatusDto>("/api/settings/yandex/status"),
-    testYandex: () =>
-      request<{ ok: boolean; folder: string }>("/api/settings/yandex/test", {
-        method: "POST",
       }),
   },
 };

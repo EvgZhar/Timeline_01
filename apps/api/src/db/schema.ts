@@ -172,6 +172,11 @@ export const userPreferences = pgTable("UserPreferences", {
   visible: boolean("Visible").notNull().default(true),
 });
 
+export const sysCounterTable = pgTable("SysCounterTable", {
+  name: varchar("Name", { length: 50 }).primaryKey(),
+  value: integer("Value").notNull().default(0),
+});
+
 export const appSettings = pgTable("AppSettings", {
   key: text("Key").primaryKey(),
   value: text("Value").notNull(),

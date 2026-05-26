@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Pencil, Plus, UserPlus, X } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Check, Pencil, Plus, Save, Search, UserPlus, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
+import type { CreateUserRequest } from "@timeline/shared";
 
 type Tab = "users" | "data-areas";
 
@@ -31,85 +32,476 @@ function UsersTab() {
     queryFn: () => api.admin.users.list(),
   });
 
+  const { data: allAreas = [] } = useQuery({
+    queryKey: ["admin", "data-areas"],
+    queryFn: () => api.admin.dataAreas.list(),
+  });
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [showCreate, setShowCreate] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchField, setSearchField] = useState<"lastName" | "firstName" | "email" | "login">("lastName");
+  const [userAreaIds, setUserAreaIds] = useState<number[]>([]);
 
-  const startEdit = (u: NonNullable<typeof users>[number]) => {
+  const startEdit = async (u: NonNullable<typeof users>[number]) => {
     setEditingId(u.id);
     setForm({ firstName: u.firstName ?? "", lastName: u.lastName ?? "", email: u.email });
+    try {
+      const ids = await api.admin.users.dataAreas(u.id);
+      setUserAreaIds(ids);
+    } catch {
+      setUserAreaIds([]);
+    }
   };
 
   const save = async (id: number) => {
     try {
       await api.admin.users.update(id, form);
+
+      // Sync data area permissions
+      const current = userAreaIds;
+      const prevReq = await fetch(`/api/admin/users/${id}/data-areas`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
+      const prev: number[] = await prevReq.json();
+
+      const toAdd = current.filter((aid) => !prev.includes(aid));
+      const toRemove = prev.filter((aid) => !current.includes(aid));
+
+      for (const areaId of toAdd) {
+        await api.admin.userDataArea.set({ userId: id, dataAreaId: areaId, canCreate: true, canRead: true, canUpdate: true, canDelete: true });
+      }
+      for (const areaId of toRemove) {
+        await api.admin.userDataArea.remove(id, areaId);
+      }
+
       setEditingId(null);
       qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["admin", "data-areas"] });
     } catch { /* ignore */ }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setUserAreaIds([]);
   };
 
   if (isLoading) return <div className="p-4 text-slate-400">Загрузка...</div>;
 
+  const fieldLabels: Record<string, string> = {
+    lastName: "Фамилии",
+    firstName: "Имени",
+    email: "Email",
+    login: "Логину",
+  };
+
+  const filtered = (users ?? []).filter((u) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const val = u[searchField] ?? "";
+    return val.toLowerCase().includes(q);
+  });
+
   return (
     <div className="space-y-2">
-      {users?.map((u) => (
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-slate-500">Пользователи</span>
+        <TooltipButton label="Создать пользователя" onClick={() => setShowCreate(true)} className="flex h-9 w-9 items-center justify-center rounded border border-dashed border-slate-300 hover:bg-slate-50">
+          <Plus size={18} />
+        </TooltipButton>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            className="w-full rounded border border-slate-300 py-1.5 pl-8 pr-3 text-xs outline-none focus:border-blue-400"
+            placeholder="Поиск..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <select
+          className="rounded border border-slate-300 px-2 py-1.5 text-xs"
+          value={searchField}
+          onChange={(e) => setSearchField(e.target.value as typeof searchField)}
+        >
+          {Object.entries(fieldLabels).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </div>
+
+      <CreateUserDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      {filtered.map((u) => (
         <div key={u.id} className="flex items-center gap-3 rounded border bg-white p-3 text-sm">
           {editingId === u.id ? (
-            <>
-              <input className="w-24 rounded border px-2 py-1" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-              <input className="w-24 rounded border px-2 py-1" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-              <input className="w-40 rounded border px-2 py-1" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <TooltipButton label="Сохранить" onClick={() => save(u.id)} className="rounded bg-green-600 p-1.5 text-white">
-                <Check size={14} />
-              </TooltipButton>
-              <TooltipButton label="Отмена" onClick={() => setEditingId(null)} className="rounded border p-1.5">
-                <X size={14} />
-              </TooltipButton>
-            </>
+            <div className="flex w-full flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <input className="w-24 rounded border px-2 py-1" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                <input className="w-24 rounded border px-2 py-1" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                <input className="w-40 rounded border px-2 py-1" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                <TooltipButton label="Сохранить" onClick={() => save(u.id)} className="rounded bg-green-600 p-1.5 text-white">
+                  <Check size={14} />
+                </TooltipButton>
+              </div>
+              <div className="border-t pt-2">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="mb-1 block text-xs font-medium text-slate-500">Области данных</span>
+                    <div className="flex flex-wrap gap-3">
+                      {allAreas.filter((a) => !a.isPersonal).map((a) => {
+                        const checked = userAreaIds.includes(a.id);
+                        return (
+                          <label key={a.id} className="flex items-center gap-1 text-xs">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300"
+                              checked={checked}
+                              onChange={() => {
+                                setUserAreaIds((prev) =>
+                                  checked ? prev.filter((id) => id !== a.id) : [...prev, a.id],
+                                );
+                              }}
+                            />
+                            {a.name}
+                          </label>
+                        );
+                      })}
+                      {allAreas.filter((a) => !a.isPersonal).length === 0 && (
+                        <span className="text-xs text-slate-400">Нет доступных областей</span>
+                      )}
+                    </div>
+                  </div>
+                  <TooltipButton label="Отмена" onClick={cancelEdit} className="shrink-0 rounded border p-1.5">
+                    <X size={14} />
+                  </TooltipButton>
+                </div>
+              </div>
+            </div>
           ) : (
             <>
-              <span className="w-8 text-slate-400">#{u.id}</span>
-              <span className="w-24 font-medium">{u.firstName} {u.lastName}</span>
-              <span className="w-20 text-slate-500">{u.login}</span>
-              <span className="w-40 text-slate-500">{u.email}</span>
-              <span className={`text-xs ${u.isActive ? "text-green-600" : "text-red-500"}`}>
+              <span className="w-8 shrink-0 text-slate-400">#{u.id}</span>
+              <span className="w-24 shrink-0 font-medium">{u.firstName} {u.lastName}</span>
+              <span className="w-20 shrink-0 text-slate-500">{u.login}</span>
+              <span className="w-40 shrink-0 truncate text-slate-500">{u.email}</span>
+              <span className={`ml-auto shrink-0 text-xs ${u.isActive ? "text-green-600" : "text-red-500"}`}>
                 {u.isActive ? "активен" : "заблокирован"}
               </span>
-              <TooltipButton label="Редактировать" onClick={() => startEdit(u)} className="ml-auto rounded border p-1.5 hover:bg-slate-50">
+              <TooltipButton label="Редактировать" onClick={() => startEdit(u)} className="shrink-0 rounded border p-1.5 hover:bg-slate-50">
                 <Pencil size={14} />
               </TooltipButton>
             </>
           )}
         </div>
       ))}
+      {filtered.length === 0 && (
+        <p className="py-4 text-center text-xs text-slate-400">Нет совпадений</p>
+      )}
     </div>
   );
 }
 
+function CreateUserDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [nextCode, setNextCode] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setError("");
+      api.admin.nextUserCode().then((r) => setNextCode(r.code)).catch(() => {});
+    }
+  }, [open]);
+
+  const createMut = useMutation({
+    mutationFn: (body: CreateUserRequest) => api.admin.users.create(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["admin", "data-areas"] });
+      onClose();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const handleSubmit = () => {
+    setError("");
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password) {
+      setError("Заполните все обязательные поля");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Пароли не совпадают");
+      return;
+    }
+    createMut.mutate({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      password,
+    });
+  };
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div className="fixed left-1/2 top-24 z-50 w-[420px] max-w-[90vw] -translate-x-1/2 rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 className="text-base font-semibold">Создание пользователя</h2>
+          <TooltipButton label="Закрыть" onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-100">
+            <X size={16} />
+          </TooltipButton>
+        </div>
+
+        <div className="space-y-3 p-4">
+          {error && (
+            <div className="rounded bg-red-50 p-2 text-xs text-red-600">{error}</div>
+          )}
+
+          <label className="block text-sm">
+            Код пользователя
+            <input className="mt-1 w-full rounded border bg-slate-50 px-2 py-1 text-sm text-slate-500" value={nextCode} readOnly />
+          </label>
+
+          <div className="flex gap-3">
+            <label className="block flex-1 text-sm">
+              Фамилия
+              <input className="mt-1 w-full rounded border px-2 py-1" value={lastName} onChange={(e) => setLastName(e.target.value)} autoFocus />
+            </label>
+            <label className="block flex-1 text-sm">
+              Имя
+              <input className="mt-1 w-full rounded border px-2 py-1" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </label>
+          </div>
+
+          <label className="block text-sm">
+            Email
+            <input className="mt-1 w-full rounded border px-2 py-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+
+          <div className="flex gap-3">
+            <label className="block flex-1 text-sm">
+              Пароль
+              <input className="mt-1 w-full rounded border px-2 py-1" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            </label>
+            <label className="block flex-1 text-sm">
+              Подтверждение
+              <input className="mt-1 w-full rounded border px-2 py-1" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+            </label>
+          </div>
+
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+          <TooltipButton
+            label="Создать"
+            onClick={handleSubmit}
+            disabled={createMut.isPending}
+            className="rounded bg-blue-600 px-3 py-1 text-white disabled:opacity-50"
+          >
+            <Save size={18} />
+          </TooltipButton>
+          <TooltipButton label="Отмена" onClick={onClose} className="rounded border px-3 py-1">
+            <X size={18} />
+          </TooltipButton>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CreateAreaDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState("");
+
+  const createMut = useMutation({
+    mutationFn: () => api.admin.dataAreas.create({ name: name.trim(), description: description.trim() || undefined }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "data-areas"] });
+      onClose();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  if (!open) return null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div className="fixed left-1/2 top-24 z-50 w-[400px] max-w-[90vw] -translate-x-1/2 rounded-lg border border-slate-200 bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <h2 className="text-base font-semibold">Создание области данных</h2>
+          <TooltipButton label="Закрыть" onClick={onClose} className="rounded p-1 text-slate-500 hover:bg-slate-100">
+            <X size={16} />
+          </TooltipButton>
+        </div>
+
+        <div className="space-y-3 p-4">
+          {error && <div className="rounded bg-red-50 p-2 text-xs text-red-600">{error}</div>}
+          <label className="block text-sm">
+            Название
+            <input className="mt-1 w-full rounded border px-2 py-1" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </label>
+          <label className="block text-sm">
+            Описание
+            <input className="mt-1 w-full rounded border px-2 py-1" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </label>
+        </div>
+
+        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+          <TooltipButton
+            label="Создать"
+            onClick={() => createMut.mutate()}
+            disabled={!name.trim() || createMut.isPending}
+            className="rounded bg-blue-600 px-3 py-1 text-white disabled:opacity-50"
+          >
+            <Save size={18} />
+          </TooltipButton>
+          <TooltipButton label="Отмена" onClick={onClose} className="rounded border px-3 py-1">
+            <X size={18} />
+          </TooltipButton>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function DataAreasTab() {
+  const qc = useQueryClient();
   const { data: areas } = useQuery({
     queryKey: ["admin", "data-areas"],
     queryFn: () => api.admin.dataAreas.list(),
   });
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => api.admin.dataAreas.update(id, { name }),
+    onSuccess: () => {
+      setEditingId(null);
+      qc.invalidateQueries({ queryKey: ["admin", "data-areas"] });
+    },
+    onError: (e: Error) => alert("Ошибка: " + e.message),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => api.admin.dataAreas.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "data-areas"] }),
+    onError: (e: Error) => alert("Ошибка: " + e.message),
+  });
+
+  const filtered = (areas ?? []).filter((a) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return a.name.toLowerCase().includes(q) || (a.description ?? "").toLowerCase().includes(q);
+  });
 
   return (
     <div className="space-y-2">
-      {areas?.map((a) => (
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-slate-500">Области данных</span>
+        <TooltipButton label="Создать область" onClick={() => setShowCreate(true)} className="flex h-9 w-9 items-center justify-center rounded border border-dashed border-slate-300 hover:bg-slate-50">
+          <Plus size={18} />
+        </TooltipButton>
+      </div>
+
+      <div className="relative flex-1">
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          className="w-full rounded border border-slate-300 py-1.5 pl-8 pr-3 text-xs outline-none focus:border-blue-400"
+          placeholder="Поиск по названию..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      <CreateAreaDialog open={showCreate} onClose={() => setShowCreate(false)} />
+      {filtered.map((a) => (
         <div key={a.id} className="rounded border bg-white p-3">
-          <button
-            onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
-            className="flex w-full items-center gap-3 text-sm"
-          >
-            <span className="w-8 text-slate-400">#{a.id}</span>
-            <span className="font-medium">{a.name}</span>
-            {a.isPersonal && <span className="text-xs text-amber-600">личная</span>}
-            {a.description && <span className="text-xs text-slate-400">{a.description}</span>}
-          </button>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="w-8 shrink-0 text-slate-400">#{a.id}</span>
+            {editingId === a.id ? (
+              <div className="flex w-full items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    className="w-60 rounded border px-2 py-1 text-sm"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && editName.trim()) {
+                        updateMut.mutate({ id: a.id, name: editName.trim() });
+                      }
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                  />
+                  <TooltipButton label="Сохранить" onClick={() => updateMut.mutate({ id: a.id, name: editName.trim() })} disabled={!editName.trim()} className="rounded bg-green-600 p-1.5 text-white disabled:opacity-50">
+                    <Check size={14} />
+                  </TooltipButton>
+                </div>
+                <TooltipButton label="Отмена" onClick={() => setEditingId(null)} className="rounded border p-1.5">
+                  <X size={14} />
+                </TooltipButton>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
+                  className="flex flex-1 items-center gap-3 text-left"
+                >
+                  <span className="font-medium">{a.name}</span>
+                  {a.isPersonal && <span className="text-xs text-amber-600">личная</span>}
+                  {a.description && <span className="text-xs text-slate-400">{a.description}</span>}
+                </button>
+                {!a.isPersonal && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <TooltipButton label="Редактировать" onClick={() => { setEditingId(a.id); setEditName(a.name); }} className="rounded p-1.5 text-slate-500 hover:bg-slate-100">
+                      <Pencil size={14} />
+                    </TooltipButton>
+                    <TooltipButton label="Удалить" onClick={() => { if (confirm(`Удалить область «${a.name}»?`)) deleteMut.mutate(a.id); }} className="rounded p-1.5 text-red-500 hover:bg-red-50">
+                      <X size={14} />
+                    </TooltipButton>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           {expandedId === a.id && <AreaUsersList dataAreaId={a.id} />}
         </div>
       ))}
+      {filtered.length === 0 && (
+        <p className="py-4 text-center text-xs text-slate-400">Нет совпадений</p>
+      )}
     </div>
   );
 }

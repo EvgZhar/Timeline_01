@@ -238,7 +238,7 @@ export function TimelinesSheet({ open, onOpenChange }: TimelinesSheetProps) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between">
             <TooltipButton
               label="Сохранить"
               onClick={() => createMut.mutate()}

@@ -29,6 +29,14 @@ export interface RegisterRequest {
   lastName: string;
 }
 
+export interface CreateUserRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  dataAreaName?: string;
+}
+
 export interface DataAreaDto {
   id: number;
   name: string;
@@ -102,7 +110,4 @@ export interface SettingsDto {
   settings: Record<string, string | null | { configured: true }>;
 }
 
-export interface YandexStatusDto {
-  configured: boolean;
-  baseFolder: string;
-}
+
