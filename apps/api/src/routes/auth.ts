@@ -1,6 +1,15 @@
+import { randomBytes, createHash } from "node:crypto";
 import { Router } from "express";
 import { and, eq } from "drizzle-orm";
-import { registerSchema, loginSchema, authSettingsSchema } from "@timeline/shared";
+import {
+  registerSchema,
+  loginSchema,
+  authSettingsSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
+} from "@timeline/shared";
 import { db } from "../db/index.js";
 import {
   sysUserTable,
@@ -10,9 +19,18 @@ import {
 } from "../db/schema.js";
 import { passwordService } from "../services/auth/password.js";
 import { jwtService } from "../services/auth/jwt.js";
+import { emailService } from "../services/auth/email.js";
 import { authenticate } from "../middleware/authenticate.js";
 
 export const authRouter = Router();
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function generateToken(): string {
+  return randomBytes(32).toString("hex");
+}
 
 // POST /auth/register
 authRouter.post("/register", async (req, res, next) => {
@@ -51,6 +69,10 @@ authRouter.post("/register", async (req, res, next) => {
 
     // Create user
     const passwordHash = passwordService.hash(body.password);
+    const confirmToken = generateToken();
+    const confirmTokenHash = hashToken(confirmToken);
+    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
     const [user] = await db
       .insert(sysUserTable)
       .values({
@@ -61,6 +83,8 @@ authRouter.post("/register", async (req, res, next) => {
         lastName: body.lastName,
         defaultDataAreaId: personalArea.id,
         emailConfirmed: false,
+        emailConfirmationTokenHash: confirmTokenHash,
+        emailTokenExpiresAt: tokenExpiresAt,
       })
       .returning();
 
@@ -79,6 +103,9 @@ authRouter.post("/register", async (req, res, next) => {
       userId: user.id,
       currentDataAreaId: personalArea.id,
     });
+
+    // Send verification email (fire-and-forget)
+    emailService.sendVerificationEmail(body.email, confirmToken).catch(console.error);
 
     const token = jwtService.sign({ userId: user.id, login: user.login });
 
@@ -149,6 +176,160 @@ authRouter.post("/login", async (req, res, next) => {
       },
       currentDataAreaId,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /auth/verify-email
+authRouter.post("/verify-email", async (req, res, next) => {
+  try {
+    const body = verifyEmailSchema.parse(req.body);
+    const tokenHash = hashToken(body.token);
+
+    const [user] = await db
+      .select()
+      .from(sysUserTable)
+      .where(eq(sysUserTable.emailConfirmationTokenHash, tokenHash))
+      .limit(1);
+
+    if (!user) {
+      res.status(400).json({ error: "Недействительный токен" });
+      return;
+    }
+
+    if (user.emailTokenExpiresAt && new Date() > user.emailTokenExpiresAt) {
+      res.status(400).json({ error: "Срок действия токена истёк" });
+      return;
+    }
+
+    await db
+      .update(sysUserTable)
+      .set({
+        emailConfirmed: true,
+        emailConfirmationTokenHash: null,
+        emailTokenExpiresAt: null,
+      })
+      .where(eq(sysUserTable.id, user.id));
+
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /auth/resend-verification
+authRouter.post("/resend-verification", async (req, res, next) => {
+  try {
+    const body = resendVerificationSchema.parse(req.body);
+
+    const [user] = await db
+      .select()
+      .from(sysUserTable)
+      .where(eq(sysUserTable.email, body.email))
+      .limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: "Пользователь не найден" });
+      return;
+    }
+
+    if (user.emailConfirmed) {
+      res.status(400).json({ error: "Email уже подтверждён" });
+      return;
+    }
+
+    const confirmToken = generateToken();
+    const confirmTokenHash = hashToken(confirmToken);
+    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await db
+      .update(sysUserTable)
+      .set({
+        emailConfirmationTokenHash: confirmTokenHash,
+        emailTokenExpiresAt: tokenExpiresAt,
+      })
+      .where(eq(sysUserTable.id, user.id));
+
+    emailService.sendVerificationEmail(user.email, confirmToken).catch(console.error);
+
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /auth/forgot-password
+authRouter.post("/forgot-password", async (req, res, next) => {
+  try {
+    const body = forgotPasswordSchema.parse(req.body);
+
+    const [user] = await db
+      .select()
+      .from(sysUserTable)
+      .where(eq(sysUserTable.email, body.email))
+      .limit(1);
+
+    // Always return ok to prevent email enumeration
+    if (!user) {
+      res.json({ ok: true });
+      return;
+    }
+
+    const resetToken = generateToken();
+    const resetTokenHash = hashToken(resetToken);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db
+      .update(sysUserTable)
+      .set({
+        passwordResetTokenHash: resetTokenHash,
+        passwordResetExpiresAt: expiresAt,
+      })
+      .where(eq(sysUserTable.id, user.id));
+
+    emailService.sendPasswordResetEmail(user.email, resetToken).catch(console.error);
+
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /auth/reset-password
+authRouter.post("/reset-password", async (req, res, next) => {
+  try {
+    const body = resetPasswordSchema.parse(req.body);
+    const tokenHash = hashToken(body.token);
+
+    const [user] = await db
+      .select()
+      .from(sysUserTable)
+      .where(eq(sysUserTable.passwordResetTokenHash, tokenHash))
+      .limit(1);
+
+    if (!user) {
+      res.status(400).json({ error: "Недействительный токен" });
+      return;
+    }
+
+    if (user.passwordResetExpiresAt && new Date() > user.passwordResetExpiresAt) {
+      res.status(400).json({ error: "Срок действия токена истёк" });
+      return;
+    }
+
+    const passwordHash = passwordService.hash(body.password);
+
+    await db
+      .update(sysUserTable)
+      .set({
+        passwordHash,
+        passwordResetTokenHash: null,
+        passwordResetExpiresAt: null,
+      })
+      .where(eq(sysUserTable.id, user.id));
+
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

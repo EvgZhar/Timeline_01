@@ -15,6 +15,13 @@
       "when": 1779794730628,
       "tag": "0001_yummy_ken_ellis",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779821013549,
+      "tag": "0002_late_triathlon",
+      "breakpoints": true
     }
   ]
 }

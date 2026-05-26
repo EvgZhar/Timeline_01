@@ -12,6 +12,7 @@ import type {
   TimelineDto,
   UserDataAreaDto,
   UserDto,
+  ExchangeOAuthCodeResponse,
 } from "@timeline/shared";
 
 function getToken(): string | null {
@@ -49,6 +50,18 @@ export const api = {
     getSettings: () => request<AuthSettingsDto>("/api/auth/settings"),
     putSettings: (body: { currentDataAreaId: number }) =>
       request<{ ok: boolean }>("/api/auth/settings", { method: "PUT", body: JSON.stringify(body) }),
+    verifyEmail: (token: string) =>
+      request<{ ok: boolean }>("/api/auth/verify-email", { method: "POST", body: JSON.stringify({ token }) }),
+    resendVerification: (email: string) =>
+      request<{ ok: boolean }>("/api/auth/resend-verification", { method: "POST", body: JSON.stringify({ email }) }),
+    forgotPassword: (email: string) =>
+      request<{ ok: boolean }>("/api/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
+    resetPassword: (token: string, password: string) =>
+      request<{ ok: boolean }>("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) }),
+    oauthCallback: (provider: string, code: string) =>
+      request<{ code: string }>(`/api/auth/oauth/${provider}/callback`, { method: "POST", body: JSON.stringify({ code }) }),
+    exchangeOAuthCode: (code: string) =>
+      request<ExchangeOAuthCodeResponse>("/api/auth/exchange-oauth-code", { method: "POST", body: JSON.stringify({ code }) }),
   },
   admin: {
     users: {

@@ -14,6 +14,7 @@ export function RegisterPage() {
     lastName: "",
   });
   const [error, setError] = useState("");
+  const [registered, setRegistered] = useState(false);
 
   const update = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -53,11 +54,30 @@ export function RegisterPage() {
         return;
       }
       setAuth(data.token, data.user, data.currentDataAreaId);
-      navigate("/");
+      setRegistered(true);
     } catch {
       setError("Ошибка сети");
     }
   };
+
+  if (registered) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+        <div className="w-full max-w-sm rounded-lg bg-white p-8 text-center shadow-md">
+          <h1 className="mb-4 text-2xl font-bold">Регистрация завершена</h1>
+          <p className="mb-4 text-slate-600">
+            На ваш email отправлено письмо для подтверждения. Пожалуйста, проверьте почту.
+          </p>
+          <button
+            onClick={() => navigate("/")}
+            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          >
+            Перейти к приложению
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const inputClass = "w-full rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none";
 

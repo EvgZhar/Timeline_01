@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 
 const HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function getSecret(): string {
   if (!process.env.JWT_SECRET) {
@@ -12,14 +13,19 @@ function getSecret(): string {
 export interface JwtPayload {
   userId: number;
   login: string;
+  exp: number;
 }
 
 function base64url(str: string): string {
   return Buffer.from(str).toString("base64url");
 }
 
-function sign(payload: JwtPayload): string {
-  const payloadStr = JSON.stringify(payload);
+function sign(payload: { userId: number; login: string }): string {
+  const fullPayload: JwtPayload = {
+    ...payload,
+    exp: Date.now() + TOKEN_EXPIRY_MS,
+  };
+  const payloadStr = JSON.stringify(fullPayload);
   const payloadB64 = base64url(payloadStr);
   const signature = createHmac("sha256", getSecret())
     .update(HEADER + "." + payloadB64)
@@ -36,7 +42,9 @@ function verify(token: string): JwtPayload | null {
     .digest("base64url");
   if (signature !== expectedSig) return null;
   try {
-    return JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+    const payload: JwtPayload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+    if (Date.now() > payload.exp) return null;
+    return payload;
   } catch {
     return null;
   }

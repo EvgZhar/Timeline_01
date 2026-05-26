@@ -21,6 +21,10 @@ export const sysUserTable = pgTable("SysUserTable", {
   lastName: varchar("LastName", { length: 100 }),
   isActive: boolean("IsActive").notNull().default(true),
   emailConfirmed: boolean("EmailConfirmed").notNull().default(false),
+  emailConfirmationTokenHash: text("EmailConfirmationTokenHash"),
+  emailTokenExpiresAt: timestamp("EmailTokenExpiresAt", { withTimezone: true }),
+  passwordResetTokenHash: text("PasswordResetTokenHash"),
+  passwordResetExpiresAt: timestamp("PasswordResetExpiresAt", { withTimezone: true }),
   defaultDataAreaId: integer("DefaultDataAreaId")
     .notNull()
     .references(() => sysDataAreaTable.id),
@@ -58,6 +62,22 @@ export const sysUserSettingsTable = pgTable("SysUserSettingsTable", {
     .notNull()
     .defaultNow(),
 });
+
+export const sysExternalLoginTable = pgTable(
+  "SysExternalLogin",
+  {
+    id: serial("Id").primaryKey(),
+    userId: integer("UserId")
+      .notNull()
+      .references(() => sysUserTable.id, { onDelete: "cascade" }),
+    provider: varchar("Provider", { length: 50 }).notNull(),
+    providerId: varchar("ProviderId", { length: 255 }).notNull(),
+    createdAt: timestamp("CreatedAt", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [uniqueIndex("SysExternalLogin_unique").on(t.provider, t.providerId)],
+);
 
 // ── Domain tables (with DataAreaId) ──
 

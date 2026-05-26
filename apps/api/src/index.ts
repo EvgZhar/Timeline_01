@@ -7,6 +7,7 @@ import helmet from "helmet";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
+import { oauthRouter } from "./routes/oauth.js";
 import { documentsRouter } from "./routes/documents.js";
 import { eventsRouter } from "./routes/events.js";
 import { settingsRouter } from "./routes/settings.js";
@@ -35,6 +36,7 @@ app.use(express.json());
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 app.use("/api/auth", authRouter);
+app.use("/api/auth", oauthRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/timelines", timelinesRouter);
 app.use("/api/events", eventsRouter);

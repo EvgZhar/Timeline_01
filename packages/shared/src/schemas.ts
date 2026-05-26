@@ -62,6 +62,23 @@ export const authSettingsSchema = z.object({
   currentDataAreaId: z.number().int().positive(),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Некорректный email"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Токен обязателен"),
+  password: z.string().min(4, "Минимум 4 символа"),
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().min(1, "Токен обязателен"),
+});
+
+export const resendVerificationSchema = z.object({
+  email: z.string().email("Некорректный email"),
+});
+
 export type TimelineCreate = z.infer<typeof timelineCreateSchema>;
 export type EventCreate = z.infer<typeof eventCreateSchema>;
 export type TagCreate = z.infer<typeof tagCreateSchema>;

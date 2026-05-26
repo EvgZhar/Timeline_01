@@ -110,4 +110,14 @@ export interface SettingsDto {
   settings: Record<string, string | null | { configured: true }>;
 }
 
+export interface OAuthCallbackResponse {
+  code: string;
+}
+
+export interface ExchangeOAuthCodeResponse {
+  token: string;
+  userId: number;
+  login: string;
+}
+
 
