@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Check, Pencil, Plus, UserPlus, X } from "lucide-react";
+import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
 
 type Tab = "users" | "data-areas";
@@ -57,8 +58,12 @@ function UsersTab() {
               <input className="w-24 rounded border px-2 py-1" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
               <input className="w-24 rounded border px-2 py-1" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
               <input className="w-40 rounded border px-2 py-1" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <button onClick={() => save(u.id)} className="rounded bg-green-600 px-3 py-1 text-white text-xs">OK</button>
-              <button onClick={() => setEditingId(null)} className="rounded border px-3 py-1 text-xs">Отмена</button>
+              <TooltipButton label="Сохранить" onClick={() => save(u.id)} className="rounded bg-green-600 p-1.5 text-white">
+                <Check size={14} />
+              </TooltipButton>
+              <TooltipButton label="Отмена" onClick={() => setEditingId(null)} className="rounded border p-1.5">
+                <X size={14} />
+              </TooltipButton>
             </>
           ) : (
             <>
@@ -69,7 +74,9 @@ function UsersTab() {
               <span className={`text-xs ${u.isActive ? "text-green-600" : "text-red-500"}`}>
                 {u.isActive ? "активен" : "заблокирован"}
               </span>
-              <button onClick={() => startEdit(u)} className="ml-auto rounded border px-2 py-1 text-xs hover:bg-slate-50">✎</button>
+              <TooltipButton label="Редактировать" onClick={() => startEdit(u)} className="ml-auto rounded border p-1.5 hover:bg-slate-50">
+                <Pencil size={14} />
+              </TooltipButton>
             </>
           )}
         </div>
@@ -199,27 +206,30 @@ function AreaUsersList({ dataAreaId }: { dataAreaId: number }) {
               </option>
             ))}
           </select>
-          <button
+          <TooltipButton
+            label="Добавить"
             onClick={addUser}
             disabled={!newUserId}
-            className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+            className="rounded bg-blue-600 p-1.5 text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            Добавить
-          </button>
-          <button
+            <Plus size={14} />
+          </TooltipButton>
+          <TooltipButton
+            label="Отмена"
             onClick={() => { setAdding(false); setNewUserId(null); }}
-            className="rounded border px-3 py-1 text-xs"
+            className="rounded border p-1.5"
           >
-            Отмена
-          </button>
+            <X size={14} />
+          </TooltipButton>
         </div>
       ) : (
-        <button
+        <TooltipButton
+          label="Добавить пользователя"
           onClick={() => setAdding(true)}
-          className="mt-2 text-xs text-blue-600 hover:underline"
+          className="mt-2 rounded p-1 text-blue-600 hover:bg-blue-50"
         >
-          + Добавить пользователя
-        </button>
+          <UserPlus size={14} />
+        </TooltipButton>
       )}
     </div>
   );
@@ -237,12 +247,13 @@ export function AdminPage() {
   return (
     <div className="min-h-screen bg-slate-100 p-6">
       <div className="mx-auto max-w-4xl">
-        <button
+        <TooltipButton
+          label="На главную"
           onClick={() => navigate("/")}
-          className="mb-4 flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          className="mb-4 rounded p-1 text-blue-600 hover:bg-blue-50"
         >
-          <ArrowLeft size={16} /> На главную
-        </button>
+          <ArrowLeft size={20} />
+        </TooltipButton>
 
         <h1 className="mb-6 text-2xl font-bold">Администрирование</h1>
 

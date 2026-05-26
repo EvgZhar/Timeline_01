@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
-import { Search, X } from "lucide-react";
+import { Check, RotateCcw, Search, X } from "lucide-react";
+import { TooltipButton } from "@/components/TooltipButton";
 import type { TagDto } from "@timeline/shared";
 
 interface TagSearchProps {
@@ -280,22 +281,22 @@ export function TagSearch({
           </div>
 
           <div className="flex gap-2">
-            <button
-              type="button"
-              className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-              disabled={localTagIds.length === 0 && !localTextQuery.trim()}
+            <TooltipButton
+              label="Применить фильтры"
               onClick={handleApply}
+              disabled={localTagIds.length === 0 && !localTextQuery.trim()}
+              className="rounded bg-blue-600 p-2 text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Применить
-            </button>
+              <Check size={18} />
+            </TooltipButton>
             {(selectedTagIds.length > 0 || textSearchQuery) && (
-              <button
-                type="button"
-                className="rounded border border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+              <TooltipButton
+                label="Сбросить фильтры"
                 onClick={handleReset}
+                className="rounded border border-red-300 p-2 text-red-600 hover:bg-red-50"
               >
-                Сбросить
-              </button>
+                <RotateCcw size={18} />
+              </TooltipButton>
             )}
           </div>
         </div>

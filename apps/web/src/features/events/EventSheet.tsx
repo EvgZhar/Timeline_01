@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDisplay, parseDisplay } from "@timeline/shared";
 import { useEffect, useRef, useState } from "react";
-import { Check, ExternalLink } from "lucide-react";
+import { Check, ExternalLink, Plus, Save, Trash2, X } from "lucide-react";
+import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -344,11 +345,8 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
             <option value="pdf">PDF</option>
             <option value="other">Другое</option>
           </select>
-          <button
-            type="button"
-            className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-            disabled={!newDocUrl.trim() || !newDocDescription.trim()}
-            title="Добавить вложение"
+          <TooltipButton
+            label="Добавить вложение"
             onClick={() => {
               if (mode === "edit" && eventId) {
                 addDocMut.mutate({ eventId, description: newDocDescription, originalLink: newDocUrl, resourceType: newDocType });
@@ -356,9 +354,11 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                 addPendingDoc();
               }
             }}
+            disabled={!newDocUrl.trim() || !newDocDescription.trim()}
+            className="rounded bg-blue-600 p-2 text-white disabled:opacity-50"
           >
-            Добавить
-          </button>
+            <Plus size={16} />
+          </TooltipButton>
         </div>
       </div>
     </div>
@@ -371,26 +371,35 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
       onOpenChange={(o) => !o && handleClose()}
       title={mode === "create" ? "Новое событие" : "Редактирование"}
       footer={
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={!valid || saveMut.isPending}
-            className="rounded bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+        <div className="flex items-center gap-2">
+          <TooltipButton
+            label="Сохранить"
             onClick={() => saveMut.mutate()}
+            disabled={!valid || saveMut.isPending}
+            className="flex w-24 items-center justify-center rounded bg-blue-600 py-2 text-white disabled:opacity-50"
           >
-            Сохранить
-          </button>
-          {mode === "edit" && (
-            <button
-              type="button"
-              className="rounded border border-red-300 px-4 py-2 text-sm text-red-600"
-              onClick={() => {
-                if (confirm("Удалить событие?")) deleteMut.mutate();
-              }}
+            <Save size={20} />
+          </TooltipButton>
+          <div className="ml-auto flex items-center gap-2">
+            <TooltipButton
+              label="Отмена"
+              onClick={handleClose}
+              className="rounded border p-2 text-slate-600 hover:bg-slate-100"
             >
-              Удалить
-            </button>
-          )}
+              <X size={20} />
+            </TooltipButton>
+            {mode === "edit" && (
+              <TooltipButton
+                label="Удалить событие"
+                onClick={() => {
+                  if (confirm("Удалить событие?")) deleteMut.mutate();
+                }}
+                className="rounded border border-red-300 p-2 text-red-600 hover:bg-red-50"
+              >
+                <Trash2 size={20} />
+              </TooltipButton>
+            )}
+          </div>
         </div>
       }
     >
@@ -506,9 +515,9 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                   onFocus={() => setShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 />
-                <button type="button" className="rounded border px-2 text-sm" onClick={addTag}>
-                  +
-                </button>
+                <TooltipButton label="Добавить тег" onClick={addTag} className="rounded border p-1.5">
+                  <Plus size={16} />
+                </TooltipButton>
               </div>
               {showSuggestions && dropdownTags.length > 0 && (
                 <div className="absolute left-0 right-0 top-full z-50 mt-0.5 rounded border bg-white p-1.5 shadow">
@@ -656,9 +665,9 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                   onFocus={() => setShowSuggestions(true)}
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 />
-                <button type="button" className="rounded border px-2 text-sm" onClick={addTag}>
-                  +
-                </button>
+                <TooltipButton label="Добавить тег" onClick={addTag} className="rounded border p-1.5">
+                  <Plus size={16} />
+                </TooltipButton>
               </div>
               {showSuggestions && dropdownTags.length > 0 && (
                 <div className="absolute left-0 right-0 top-full z-50 mt-0.5 rounded border bg-white p-1.5 shadow">

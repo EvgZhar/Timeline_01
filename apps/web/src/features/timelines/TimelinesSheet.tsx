@@ -3,41 +3,11 @@ import { useState } from "react";
 import { ArrowDown, ArrowUp, Check, ImageOff, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
+import { TooltipButton } from "@/components/TooltipButton";
 
 interface TimelinesSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function TooltipButton({
-  label,
-  onClick,
-  disabled,
-  className,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="group/tooltip relative flex items-center">
-      <button
-        type="button"
-        disabled={disabled}
-        className={className}
-        onClick={onClick}
-      >
-        {children}
-      </button>
-      <span className="pointer-events-none absolute -top-7 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-[10px] text-white opacity-0 shadow transition-opacity group-hover/tooltip:opacity-100">
-        {label}
-        <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-      </span>
-    </div>
-  );
 }
 
 export function TimelinesSheet({ open, onOpenChange }: TimelinesSheetProps) {
@@ -287,14 +257,13 @@ export function TimelinesSheet({ open, onOpenChange }: TimelinesSheetProps) {
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          className="mt-4 flex w-full items-center justify-center gap-1 rounded border border-dashed border-slate-300 py-2 text-sm hover:bg-slate-50"
+        <TooltipButton
+          label="Добавить шкалу"
           onClick={() => setShowForm(true)}
+          className="mt-4 flex w-full items-center justify-center rounded border border-dashed border-slate-300 py-2 hover:bg-slate-50"
         >
           <Plus size={16} />
-          Добавить шкалу
-        </button>
+        </TooltipButton>
       )}
     </Sheet>
   );

@@ -1,5 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
+import { TooltipButton } from "@/components/TooltipButton";
 
 interface SheetProps {
   open: boolean;
@@ -44,14 +46,13 @@ export function Sheet({
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <h2 className="text-lg font-semibold">{title}</h2>
-          <button
-            type="button"
+          <TooltipButton
+            label="Закрыть"
             onClick={() => onOpenChange(false)}
             className="rounded p-1 text-slate-500 hover:bg-slate-100"
-            aria-label="Закрыть"
           >
-            ✕
-          </button>
+            <X size={16} />
+          </TooltipButton>
         </div>
         <div className="flex-1 overflow-y-auto p-4">{children}</div>
         {footer && (

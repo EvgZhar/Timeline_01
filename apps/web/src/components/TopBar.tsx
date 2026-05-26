@@ -1,7 +1,8 @@
-import { Search, LogOut, LayoutDashboard } from "lucide-react";
+import { CalendarPlus, Layers, Search, LogOut, LayoutDashboard, Settings } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "@/api/client";
 import { useNavigate } from "react-router-dom";
+import { TooltipButton } from "@/components/TooltipButton";
 
 interface TopBarProps {
   onTimelines: () => void;
@@ -54,27 +55,27 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, filterCo
           </span>
         )}
       </button>
-      <button
-        type="button"
+      <TooltipButton
+        label="Временные шкалы"
         onClick={onTimelines}
-        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-100"
+        className="rounded-md border border-slate-300 bg-white p-2 text-slate-600 hover:bg-slate-100"
       >
-        Временные шкалы
-      </button>
-      <button
-        type="button"
+        <Layers size={20} />
+      </TooltipButton>
+      <TooltipButton
+        label="Добавить событие"
         onClick={onAddEvent}
-        className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+        className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700"
       >
-        Добавить событие
-      </button>
-      <button
-        type="button"
+        <CalendarPlus size={20} />
+      </TooltipButton>
+      <TooltipButton
+        label="Настройки"
         onClick={onSettings}
-        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-100"
+        className="rounded-md border border-slate-300 bg-white p-2 text-slate-600 hover:bg-slate-100"
       >
-        Настройки
-      </button>
+        <Settings size={20} />
+      </TooltipButton>
 
       {isAdmin && (
         <button

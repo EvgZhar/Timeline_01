@@ -3,7 +3,8 @@ import { formatDisplay } from "@timeline/shared";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
-import { Check, ImageOff, Link2, Pencil, X } from "lucide-react";
+import { Check, Eraser, ImageOff, Link2, Pencil, Plus, Save, Wifi, X } from "lucide-react";
+import { TooltipButton } from "@/components/TooltipButton";
 import type { ViewRange } from "@/features/timeline/timeScale";
 import type { TagDto } from "@timeline/shared";
 
@@ -57,37 +58,6 @@ function TabBar({ active, onChange }: { active: TabId; onChange: (t: TabId) => v
           {t.label}
         </button>
       ))}
-    </div>
-  );
-}
-
-function TooltipButton({
-  label,
-  onClick,
-  disabled,
-  className,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  disabled?: boolean;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="group/tooltip relative flex items-center">
-      <button
-        type="button"
-        disabled={disabled}
-        className={className}
-        onClick={onClick}
-      >
-        {children}
-      </button>
-      <span className="pointer-events-none absolute -top-7 left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded bg-slate-800 px-2 py-0.5 text-[10px] text-white opacity-0 shadow transition-opacity group-hover/tooltip:opacity-100">
-        {label}
-        <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
-      </span>
     </div>
   );
 }
@@ -232,20 +202,20 @@ export function SettingsSheet({
             />
           </label>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="rounded bg-blue-600 px-3 py-1 text-sm text-white"
+            <TooltipButton
+              label="Сохранить настройки"
               onClick={() => saveMut.mutate()}
+              className="rounded bg-blue-600 p-2 text-white"
             >
-              Сохранить
-            </button>
-            <button
-              type="button"
-              className="rounded border px-3 py-1 text-sm"
+              <Save size={16} />
+            </TooltipButton>
+            <TooltipButton
+              label="Проверить подключение"
               onClick={() => testMut.mutate()}
+              className="rounded border p-2"
             >
-              Проверить подключение
-            </button>
+              <Wifi size={16} />
+            </TooltipButton>
           </div>
           {testResult && <p className="text-sm text-slate-600">{testResult}</p>}
         </section>
@@ -289,13 +259,13 @@ export function SettingsSheet({
           </label>
 
           {hasSavedSettings && onClearSettings && (
-            <button
-              type="button"
-              className="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50"
+            <TooltipButton
+              label="Очистить сохранённые настройки"
               onClick={onClearSettings}
+              className="rounded border border-red-300 p-2 text-red-600 hover:bg-red-50"
             >
-              Очистить сохранённые настройки
-            </button>
+              <Eraser size={16} />
+            </TooltipButton>
           )}
         </section>
       )}
@@ -327,14 +297,14 @@ export function SettingsSheet({
                 value={newTagPreview}
                 onChange={(e) => setNewTagPreview(e.target.value)}
               />
-              <button
-                type="button"
-                className="self-start rounded bg-blue-600 px-3 py-1 text-xs text-white disabled:opacity-50"
-                disabled={!newTagName.trim()}
+              <TooltipButton
+                label="Добавить тег"
                 onClick={() => createTagMut.mutate()}
+                disabled={!newTagName.trim()}
+                className="self-start rounded bg-blue-600 p-1.5 text-white disabled:opacity-50"
               >
-                Добавить
-              </button>
+                <Plus size={16} />
+              </TooltipButton>
             </div>
           </div>
 

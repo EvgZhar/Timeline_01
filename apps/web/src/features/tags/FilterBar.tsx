@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { Search, X } from "lucide-react";
+import { TooltipButton } from "@/components/TooltipButton";
 
 interface FilterBarProps {
   tagFilterIds: number[];
@@ -96,16 +97,13 @@ export function FilterBar({
         {tagFilterMode === "and" ? "И" : "Или"}
       </span>
 
-      <button
-        type="button"
+      <TooltipButton
+        label="Сбросить фильтры"
         onClick={onReset}
-        className="ml-auto rounded px-2 py-0.5 text-xs text-red-600 hover:bg-red-50"
+        className="ml-auto rounded p-1 text-red-500 hover:bg-red-50"
       >
-        <span className="flex items-center gap-1">
-          <X size={12} />
-          Сбросить
-        </span>
-      </button>
+        <X size={14} />
+      </TooltipButton>
     </div>
   );
 }
