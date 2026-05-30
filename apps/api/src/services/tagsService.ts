@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, like, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, sql, type SQL } from "drizzle-orm";
 import type { TagDto } from "@timeline/shared";
 import { db } from "../db/index.js";
 import { tagEventLink, tagTable } from "../db/schema.js";
@@ -16,7 +16,7 @@ function toDto(row: typeof tagTable.$inferSelect): TagDto {
 
 export async function listTags(q?: string, allowedDataAreaIds?: number[]): Promise<TagDto[]> {
   const conditions: SQL[] = [];
-  if (q) conditions.push(like(tagTable.name, `%${q}%`));
+  if (q) conditions.push(ilike(tagTable.name, `%${q}%`));
   if (allowedDataAreaIds && allowedDataAreaIds.length > 0) conditions.push(inArray(tagTable.dataAreaId, allowedDataAreaIds));
 
   const rows = conditions.length > 0
