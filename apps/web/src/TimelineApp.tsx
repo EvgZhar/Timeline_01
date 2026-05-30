@@ -169,7 +169,7 @@ export function TimelineApp() {
   };
 
   return (
-    <div className="flex min-h-screen min-w-[1024px] flex-col">
+    <div className="flex h-screen min-w-[1024px] flex-col">
       <TopBar
         onTimelines={() => setTimelinesOpen(true)}
         onAddEvent={() => setEventSheet({ mode: "create" })}
@@ -192,7 +192,7 @@ export function TimelineApp() {
         }}
         onSearch={() => setSearchOpen(true)}
       />
-      <main className="flex-1 overflow-hidden border border-slate-200 bg-white">
+      <main className="flex-1 overflow-hidden border border-slate-200 bg-white pb-[10px]">
         <TimelineCanvas
           tagFilterIds={tagFilterIds}
           tagFilterMode={tagFilterMode}
