@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "./AuthContext";
 
 const OAUTH_PROVIDERS = [
@@ -17,20 +18,11 @@ export function LoginPage() {
     e.preventDefault();
     setError("");
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ login, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Ошибка входа");
-        return;
-      }
-      setAuth(data.token, data.user, data.currentDataAreaId);
+      const response = await api.auth.login({ login, password });
+      setAuth(response.user, response.currentDataAreaId);
       navigate("/");
-    } catch {
-      setError("Ошибка сети");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка входа");
     }
   };
 

@@ -9,6 +9,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file=../../.env ../../node_modules/.bin/tsx src/db/migrate.ts",
     "db:seed": "node --env-file=../../.env ../../node_modules/.bin/tsx src/db/seed.ts",
+    "db:cleanup-tokens": "node --env-file=../../.env ../../node_modules/.bin/tsx src/db/cleanup-tokens.ts",
+    "rate-limit:reset": "kill -9 $(lsof -ti :3001) 2>/dev/null; echo 'Готово — лимиты сброшены, API перезапускается'",
     "dev": "node --env-file=../../.env ../../node_modules/.bin/tsx watch src/index.ts"
   },
   "dependencies": {
@@ -24,7 +26,9 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/multer": "^1.4.12",

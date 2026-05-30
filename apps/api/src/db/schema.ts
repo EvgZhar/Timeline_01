@@ -197,6 +197,33 @@ export const sysCounterTable = pgTable("SysCounterTable", {
   value: integer("Value").notNull().default(0),
 });
 
+export const sysRefreshTokenTable = pgTable("SysRefreshToken", {
+  id: serial("Id").primaryKey(),
+  userId: integer("UserId")
+    .notNull()
+    .references(() => sysUserTable.id, { onDelete: "cascade" }),
+  tokenHash: text("TokenHash").notNull(),
+  expiresAt: timestamp("ExpiresAt", { withTimezone: true }).notNull(),
+  createdAt: timestamp("CreatedAt", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  ipAddress: varchar("IpAddress", { length: 45 }),
+  userAgent: text("UserAgent"),
+  revokedAt: timestamp("RevokedAt", { withTimezone: true }),
+});
+
+export const sysAuditLogTable = pgTable("SysAuditLog", {
+  id: serial("Id").primaryKey(),
+  userId: integer("UserId").references(() => sysUserTable.id, { onDelete: "set null" }),
+  eventType: varchar("EventType", { length: 50 }).notNull(),
+  ipAddress: varchar("IpAddress", { length: 45 }),
+  userAgent: text("UserAgent"),
+  metadata: text("Metadata"),
+  createdAt: timestamp("CreatedAt", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const appSettings = pgTable("AppSettings", {
   key: text("Key").primaryKey(),
   value: text("Value").notNull(),

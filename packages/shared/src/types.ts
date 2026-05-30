@@ -11,7 +11,6 @@ export interface UserDto {
 }
 
 export interface AuthResponse {
-  token: string;
   user: UserDto;
   currentDataAreaId: number;
 }
@@ -115,7 +114,7 @@ export interface OAuthCallbackResponse {
 }
 
 export interface ExchangeOAuthCodeResponse {
-  token: string;
+  ok: boolean;
   userId: number;
   login: string;
 }

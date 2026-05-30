@@ -41,7 +41,7 @@ async function main() {
     .limit(1);
 
   if (!adminUser) {
-    const passwordHash = passwordService.hash("admin");
+    const passwordHash = await passwordService.hash("admin");
     [adminUser] = await db
       .insert(sysUserTable)
       .values({

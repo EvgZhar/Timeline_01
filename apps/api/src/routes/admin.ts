@@ -74,7 +74,7 @@ adminRouter.put("/users/:id", async (req, res, next) => {
     if (lastName !== undefined) values.lastName = lastName;
     if (email !== undefined) values.email = email;
     if (isActive !== undefined) values.isActive = isActive;
-    if (password) values.passwordHash = passwordService.hash(password);
+    if (password) values.passwordHash = await passwordService.hash(password);
 
     const [updated] = await db
       .update(sysUserTable)
@@ -159,7 +159,7 @@ adminRouter.post("/users/create", async (req, res, next) => {
       .returning({ value: sysCounterTable.value });
 
     const code = `U${String(counter.value).padStart(6, "0")}`;
-    const passwordHash = passwordService.hash(password);
+    const passwordHash = await passwordService.hash(password);
 
     // Create personal DataArea
     const [personalArea] = await db

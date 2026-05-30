@@ -1,50 +1,38 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { SignJWT, jwtVerify, type JWTPayload } from "jose";
+import { randomBytes } from "node:crypto";
 
-const HEADER = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-const TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const ACCESS_EXPIRY_S = 15 * 60; // 15 minutes
+const REFRESH_EXPIRY_D = 7; // 7 days
 
-function getSecret(): string {
-  if (!process.env.JWT_SECRET) {
-    process.env.JWT_SECRET = randomBytes(64).toString("hex");
-  }
-  return process.env.JWT_SECRET;
+function getSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET ?? randomBytes(64).toString("hex");
+  return new TextEncoder().encode(secret);
 }
 
 export interface JwtPayload {
   userId: number;
   login: string;
-  exp: number;
+  type: "access" | "refresh";
 }
 
-function base64url(str: string): string {
-  return Buffer.from(str).toString("base64url");
+async function sign(payload: Omit<JwtPayload, "type">, type: "access" | "refresh"): Promise<string> {
+  const exp = type === "access" ? `${ACCESS_EXPIRY_S}s` : `${REFRESH_EXPIRY_D}d`;
+  return new SignJWT({ ...payload, type })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(exp)
+    .sign(getSecret());
 }
 
-function sign(payload: { userId: number; login: string }): string {
-  const fullPayload: JwtPayload = {
-    ...payload,
-    exp: Date.now() + TOKEN_EXPIRY_MS,
-  };
-  const payloadStr = JSON.stringify(fullPayload);
-  const payloadB64 = base64url(payloadStr);
-  const signature = createHmac("sha256", getSecret())
-    .update(HEADER + "." + payloadB64)
-    .digest("base64url");
-  return `${HEADER}.${payloadB64}.${signature}`;
-}
-
-function verify(token: string): JwtPayload | null {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  const [header, payloadB64, signature] = parts;
-  const expectedSig = createHmac("sha256", getSecret())
-    .update(header + "." + payloadB64)
-    .digest("base64url");
-  if (signature !== expectedSig) return null;
+async function verify(token: string, expectedType: "access" | "refresh"): Promise<JwtPayload | null> {
   try {
-    const payload: JwtPayload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
-    if (Date.now() > payload.exp) return null;
-    return payload;
+    const { payload } = await jwtVerify(token, getSecret(), { clockTolerance: 15 });
+    if (payload.type !== expectedType) return null;
+    return {
+      userId: payload.userId as number,
+      login: payload.login as string,
+      type: payload.type as "access" | "refresh",
+    };
   } catch {
     return null;
   }

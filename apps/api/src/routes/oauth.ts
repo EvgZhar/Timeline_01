@@ -1,5 +1,6 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/index.js";
 import {
@@ -8,23 +9,23 @@ import {
   sysDataAreaTable,
   sysUserDataArea,
   sysUserSettingsTable,
+  sysRefreshTokenTable,
 } from "../db/schema.js";
 import { jwtService } from "../services/auth/jwt.js";
 import { oauthProviders } from "../services/auth/oauth/index.js";
 import { passwordService } from "../services/auth/password.js";
+import { logAudit } from "../services/auditLog.js";
 
 export const oauthRouter = Router();
 
-// In-memory store for temporary OAuth codes (short-lived)
 const tempCodeStore = new Map<string, { jwt: string; expiresAt: number }>();
 
 function generateTempCode(jwt: string): string {
   const code = randomBytes(16).toString("hex");
-  tempCodeStore.set(code, { jwt, expiresAt: Date.now() + 60_000 }); // 1 minute
+  tempCodeStore.set(code, { jwt, expiresAt: Date.now() + 60_000 });
   return code;
 }
 
-// Clean expired codes every 5 minutes
 setInterval(() => {
   const now = Date.now();
   for (const [code, data] of tempCodeStore) {
@@ -33,8 +34,28 @@ setInterval(() => {
 }, 300_000);
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
+const IS_DEV = process.env.NODE_ENV !== "production";
 
-// GET /auth/oauth/:provider — redirect to OAuth provider
+function setAuthCookies(
+  res: import("express").Response,
+  accessToken: string,
+  refreshToken: string,
+) {
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: !IS_DEV,
+    sameSite: "strict",
+    maxAge: 15 * 60 * 1000,
+  });
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: !IS_DEV,
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+}
+
+// GET /auth/oauth/:provider
 oauthRouter.get("/oauth/:provider", (req, res) => {
   const provider = oauthProviders[req.params.provider];
   if (!provider) {
@@ -42,12 +63,19 @@ oauthRouter.get("/oauth/:provider", (req, res) => {
     return;
   }
 
-  const state = randomBytes(16).toString("hex");
+  const state = randomBytes(32).toString("hex");
+  res.cookie("oauth_state", state, {
+    httpOnly: true,
+    secure: !IS_DEV,
+    sameSite: "lax",
+    maxAge: 10 * 60 * 1000, // 10 minutes
+  });
+
   const authUrl = provider.getAuthUrl(state);
   res.redirect(authUrl);
 });
 
-// GET /auth/oauth/:provider/callback — OAuth provider redirects here after user authorizes
+// GET /auth/oauth/:provider/callback
 oauthRouter.get("/oauth/:provider/callback", async (req, res, next) => {
   try {
     const provider = oauthProviders[req.params.provider];
@@ -57,19 +85,23 @@ oauthRouter.get("/oauth/:provider/callback", async (req, res, next) => {
     }
 
     const { code, state } = req.query as { code?: string; state?: string };
+    const storedState = req.cookies?.oauth_state as string | undefined;
 
     if (!code) {
       res.status(400).json({ error: "Отсутствует код авторизации" });
       return;
     }
 
-    // Exchange code for access token
-    const accessToken = await provider.exchangeCode(code);
+    if (!storedState || storedState !== state) {
+      res.status(403).json({ error: "Недействительный state" });
+      return;
+    }
 
-    // Get user info from provider
+    res.clearCookie("oauth_state", { httpOnly: true, secure: !IS_DEV, sameSite: "lax" });
+
+    const accessToken = await provider.exchangeCode(code);
     const userInfo = await provider.getUserInfo(accessToken);
 
-    // Check if external login exists
     const [existingExternal] = await db
       .select()
       .from(sysExternalLoginTable)
@@ -86,7 +118,6 @@ oauthRouter.get("/oauth/:provider/callback", async (req, res, next) => {
     if (existingExternal) {
       userId = existingExternal.userId;
     } else {
-      // Try to find user by email
       let [user] = await db
         .select()
         .from(sysUserTable)
@@ -96,7 +127,6 @@ oauthRouter.get("/oauth/:provider/callback", async (req, res, next) => {
       if (user) {
         userId = user.id;
       } else {
-        // Create new user
         const loginBase = userInfo.email.split("@")[0] || `user-${userInfo.providerId.slice(0, 8)}`;
         let login = loginBase;
         let suffix = 1;
@@ -120,7 +150,7 @@ oauthRouter.get("/oauth/:provider/callback", async (req, res, next) => {
           })
           .returning();
 
-        const randomPassword = passwordService.hash(randomBytes(32).toString("hex"));
+        const randomPassword = await passwordService.hash(randomBytes(32).toString("hex"));
 
         [user] = await db
           .insert(sysUserTable)
@@ -152,7 +182,6 @@ oauthRouter.get("/oauth/:provider/callback", async (req, res, next) => {
         userId = user.id;
       }
 
-      // Link external account
       await db.insert(sysExternalLoginTable).values({
         userId,
         provider: userInfo.provider,
@@ -160,7 +189,6 @@ oauthRouter.get("/oauth/:provider/callback", async (req, res, next) => {
       });
     }
 
-    // Generate JWT
     const [user] = await db
       .select()
       .from(sysUserTable)
@@ -172,18 +200,38 @@ oauthRouter.get("/oauth/:provider/callback", async (req, res, next) => {
       return;
     }
 
-    const token = jwtService.sign({ userId: user.id, login: user.login });
-    const tempCode = generateTempCode(token);
+    const accessJwt = await jwtService.sign({ userId: user.id, login: user.login }, "access");
+    const refreshJwt = await jwtService.sign({ userId: user.id, login: user.login }, "refresh");
 
-    // Redirect to frontend with temp code
+    const tokenHash = createHash("sha256").update(refreshJwt).digest("hex");
+    await db.insert(sysRefreshTokenTable).values({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      ipAddress: req.ip || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+
+    setAuthCookies(res, accessJwt, refreshJwt);
+    await logAudit(user.id, "oauth_login", req, { provider: userInfo.provider });
+
+    const tempCode = generateTempCode(accessJwt);
     res.redirect(`${FRONTEND_URL}/auth/callback?code=${encodeURIComponent(tempCode)}`);
   } catch (e) {
     next(e);
   }
 });
 
-// POST /auth/exchange-oauth-code — exchange temp code for JWT
-oauthRouter.post("/exchange-oauth-code", (req, res) => {
+const oauthExchangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Слишком много запросов, попробуйте позже" },
+});
+
+// POST /auth/exchange-oauth-code
+oauthRouter.post("/exchange-oauth-code", oauthExchangeLimiter, async (req, res) => {
   const { code } = req.body as { code?: string };
   if (!code) {
     res.status(400).json({ error: "Отсутствует код" });
@@ -199,12 +247,11 @@ oauthRouter.post("/exchange-oauth-code", (req, res) => {
 
   tempCodeStore.delete(code);
 
-  // Decode JWT to get user info for the response
-  const payload = jwtService.verify(data.jwt);
+  const payload = await jwtService.verify(data.jwt, "access");
   if (!payload) {
     res.status(401).json({ error: "Недействительный токен" });
     return;
   }
 
-  res.json({ token: data.jwt, userId: payload.userId, login: payload.login });
+  res.json({ ok: true, userId: payload.userId, login: payload.login });
 });

@@ -1,6 +1,7 @@
 import { randomBytes, createHash } from "node:crypto";
 import { Router } from "express";
-import { and, eq } from "drizzle-orm";
+import rateLimit from "express-rate-limit";
+import { and, eq, gt } from "drizzle-orm";
 import {
   registerSchema,
   loginSchema,
@@ -16,13 +17,35 @@ import {
   sysDataAreaTable,
   sysUserDataArea,
   sysUserSettingsTable,
+  sysRefreshTokenTable,
 } from "../db/schema.js";
 import { passwordService } from "../services/auth/password.js";
 import { jwtService } from "../services/auth/jwt.js";
 import { emailService } from "../services/auth/email.js";
 import { authenticate } from "../middleware/authenticate.js";
+import { logAudit } from "../services/auditLog.js";
 
 export const authRouter = Router();
+
+const ACCESS_COOKIE_MAX_AGE = 15 * 60 * 1000; // 15 minutes
+const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+const IS_DEV = process.env.NODE_ENV !== "production";
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Слишком много запросов, попробуйте позже" },
+});
+
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Слишком много запросов, попробуйте позже" },
+});
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -32,8 +55,103 @@ function generateToken(): string {
   return randomBytes(32).toString("hex");
 }
 
+function setAuthCookies(
+  res: import("express").Response,
+  accessToken: string,
+  refreshToken: string,
+) {
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: !IS_DEV,
+    sameSite: "strict",
+    maxAge: ACCESS_COOKIE_MAX_AGE,
+  });
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: !IS_DEV,
+    sameSite: "strict",
+    maxAge: REFRESH_COOKIE_MAX_AGE,
+  });
+}
+
+function clearAuthCookies(res: import("express").Response) {
+  res.clearCookie("accessToken", { httpOnly: true, secure: !IS_DEV, sameSite: "strict" });
+  res.clearCookie("refreshToken", { httpOnly: true, secure: !IS_DEV, sameSite: "strict" });
+}
+
+async function createRefreshToken(userId: number, token: string, req: import("express").Request): Promise<void> {
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + REFRESH_COOKIE_MAX_AGE);
+  await db.insert(sysRefreshTokenTable).values({
+    userId,
+    tokenHash,
+    expiresAt,
+    ipAddress: req.ip || null,
+    userAgent: req.headers["user-agent"] || null,
+  });
+}
+
+async function rotateRefreshToken(
+  oldTokenHash: string,
+  userId: number,
+  newToken: string,
+  req: import("express").Request,
+): Promise<void> {
+  const tokenHash = hashToken(newToken);
+  const expiresAt = new Date(Date.now() + REFRESH_COOKIE_MAX_AGE);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(sysRefreshTokenTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(sysRefreshTokenTable.tokenHash, oldTokenHash));
+    await tx.insert(sysRefreshTokenTable).values({
+      userId,
+      tokenHash,
+      expiresAt,
+      ipAddress: req.ip || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  });
+}
+
+async function revokeRefreshToken(tokenHash: string): Promise<void> {
+  await db
+    .update(sysRefreshTokenTable)
+    .set({ revokedAt: new Date() })
+    .where(eq(sysRefreshTokenTable.tokenHash, tokenHash));
+}
+
+async function buildUserResponse(userId: number) {
+  const [user] = await db
+    .select()
+    .from(sysUserTable)
+    .where(eq(sysUserTable.id, userId))
+    .limit(1);
+  if (!user) return null;
+  const [settings] = await db
+    .select()
+    .from(sysUserSettingsTable)
+    .where(eq(sysUserSettingsTable.userId, userId))
+    .limit(1);
+  const currentDataAreaId = settings?.currentDataAreaId ?? user.defaultDataAreaId;
+  return {
+    user: {
+      id: user.id,
+      login: user.login,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      isActive: user.isActive,
+      emailConfirmed: user.emailConfirmed,
+      defaultDataAreaId: user.defaultDataAreaId,
+      createdAt: user.createdAt,
+    },
+    currentDataAreaId,
+  };
+}
+
 // POST /auth/register
-authRouter.post("/register", async (req, res, next) => {
+authRouter.post("/register", loginLimiter, async (req, res, next) => {
   try {
     const body = registerSchema.parse(req.body);
 
@@ -57,7 +175,6 @@ authRouter.post("/register", async (req, res, next) => {
       return;
     }
 
-    // Create personal DataArea
     const [personalArea] = await db
       .insert(sysDataAreaTable)
       .values({
@@ -67,11 +184,10 @@ authRouter.post("/register", async (req, res, next) => {
       })
       .returning();
 
-    // Create user
-    const passwordHash = passwordService.hash(body.password);
+    const passwordHash = await passwordService.hash(body.password);
     const confirmToken = generateToken();
     const confirmTokenHash = hashToken(confirmToken);
-    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+    const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const [user] = await db
       .insert(sysUserTable)
@@ -88,7 +204,6 @@ authRouter.post("/register", async (req, res, next) => {
       })
       .returning();
 
-    // Full CRUD rights on personal DataArea
     await db.insert(sysUserDataArea).values({
       userId: user.id,
       dataAreaId: personalArea.id,
@@ -98,19 +213,21 @@ authRouter.post("/register", async (req, res, next) => {
       canDelete: true,
     });
 
-    // Settings: current = personal
     await db.insert(sysUserSettingsTable).values({
       userId: user.id,
       currentDataAreaId: personalArea.id,
     });
 
-    // Send verification email (fire-and-forget)
     emailService.sendVerificationEmail(body.email, confirmToken).catch(console.error);
 
-    const token = jwtService.sign({ userId: user.id, login: user.login });
+    const accessToken = await jwtService.sign({ userId: user.id, login: user.login }, "access");
+    const refreshToken = await jwtService.sign({ userId: user.id, login: user.login }, "refresh");
+    await createRefreshToken(user.id, refreshToken, req);
+
+    setAuthCookies(res, accessToken, refreshToken);
+    await logAudit(user.id, "register", req);
 
     res.status(201).json({
-      token,
       user: {
         id: user.id,
         login: user.login,
@@ -130,7 +247,7 @@ authRouter.post("/register", async (req, res, next) => {
 });
 
 // POST /auth/login
-authRouter.post("/login", async (req, res, next) => {
+authRouter.post("/login", loginLimiter, async (req, res, next) => {
   try {
     const body = loginSchema.parse(req.body);
 
@@ -140,42 +257,98 @@ authRouter.post("/login", async (req, res, next) => {
       .where(eq(sysUserTable.login, body.login))
       .limit(1);
 
-    if (!user || !passwordService.verify(body.password, user.passwordHash)) {
+    if (!user || !(await passwordService.verify(body.password, user.passwordHash))) {
+      await logAudit(user?.id ?? null, "login_fail", req, { reason: "invalid_credentials", login: body.login });
       res.status(401).json({ error: "Неверный логин или пароль" });
       return;
     }
 
     if (!user.isActive) {
+      await logAudit(user.id, "login_fail", req, { reason: "user_blocked" });
       res.status(403).json({ error: "Пользователь заблокирован" });
       return;
     }
 
-    // Get current DataArea from settings or default
-    const [settings] = await db
+    const accessToken = await jwtService.sign({ userId: user.id, login: user.login }, "access");
+    const refreshToken = await jwtService.sign({ userId: user.id, login: user.login }, "refresh");
+    await createRefreshToken(user.id, refreshToken, req);
+
+    setAuthCookies(res, accessToken, refreshToken);
+    await logAudit(user.id, "login_success", req);
+
+    const response = await buildUserResponse(user.id);
+    res.json(response);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /auth/logout
+authRouter.post("/logout", async (req, res, next) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken as string | undefined;
+    if (refreshToken) {
+      const payload = await jwtService.verify(refreshToken, "refresh");
+      if (payload) {
+        const tokenHash = hashToken(refreshToken);
+        await revokeRefreshToken(tokenHash);
+        await logAudit(payload.userId, "logout", req);
+      }
+    }
+    clearAuthCookies(res);
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /auth/refresh
+authRouter.post("/refresh", refreshLimiter, async (req, res, next) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken as string | undefined;
+    if (!refreshToken) {
+      res.status(401).json({ error: "Требуется авторизация" });
+      return;
+    }
+
+    const payload = await jwtService.verify(refreshToken, "refresh");
+    if (!payload) {
+      clearAuthCookies(res);
+      res.status(401).json({ error: "Недействительный токен" });
+      return;
+    }
+
+    const tokenHash = hashToken(refreshToken);
+    const [stored] = await db
       .select()
-      .from(sysUserSettingsTable)
-      .where(eq(sysUserSettingsTable.userId, user.id))
+      .from(sysRefreshTokenTable)
+      .where(
+        and(
+          eq(sysRefreshTokenTable.tokenHash, tokenHash),
+          eq(sysRefreshTokenTable.userId, payload.userId),
+          gt(sysRefreshTokenTable.expiresAt, new Date()),
+        ),
+      )
       .limit(1);
 
-    const currentDataAreaId = settings?.currentDataAreaId ?? user.defaultDataAreaId;
+    if (!stored || stored.revokedAt) {
+      clearAuthCookies(res);
+      res.status(401).json({ error: "Недействительный токен" });
+      return;
+    }
 
-    const token = jwtService.sign({ userId: user.id, login: user.login });
+    const newAccessToken = await jwtService.sign(
+      { userId: payload.userId, login: payload.login },
+      "access",
+    );
+    const newRefreshToken = await jwtService.sign(
+      { userId: payload.userId, login: payload.login },
+      "refresh",
+    );
+    await rotateRefreshToken(tokenHash, payload.userId, newRefreshToken, req);
 
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        login: user.login,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        isActive: user.isActive,
-        emailConfirmed: user.emailConfirmed,
-        defaultDataAreaId: user.defaultDataAreaId,
-        createdAt: user.createdAt,
-      },
-      currentDataAreaId,
-    });
+    setAuthCookies(res, newAccessToken, newRefreshToken);
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }
@@ -270,7 +443,6 @@ authRouter.post("/forgot-password", async (req, res, next) => {
       .where(eq(sysUserTable.email, body.email))
       .limit(1);
 
-    // Always return ok to prevent email enumeration
     if (!user) {
       res.json({ ok: true });
       return;
@@ -278,7 +450,7 @@ authRouter.post("/forgot-password", async (req, res, next) => {
 
     const resetToken = generateToken();
     const resetTokenHash = hashToken(resetToken);
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
     await db
       .update(sysUserTable)
@@ -318,7 +490,7 @@ authRouter.post("/reset-password", async (req, res, next) => {
       return;
     }
 
-    const passwordHash = passwordService.hash(body.password);
+    const passwordHash = await passwordService.hash(body.password);
 
     await db
       .update(sysUserTable)
@@ -329,6 +501,12 @@ authRouter.post("/reset-password", async (req, res, next) => {
       })
       .where(eq(sysUserTable.id, user.id));
 
+    // Revoke all refresh tokens for this user after password reset
+    await db
+      .update(sysRefreshTokenTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(sysRefreshTokenTable.userId, user.id));
+
     res.json({ ok: true });
   } catch (e) {
     next(e);
@@ -338,28 +516,12 @@ authRouter.post("/reset-password", async (req, res, next) => {
 // GET /auth/me
 authRouter.get("/me", authenticate, async (req, res, next) => {
   try {
-    const [user] = await db
-      .select()
-      .from(sysUserTable)
-      .where(eq(sysUserTable.id, req.user!.userId))
-      .limit(1);
-
-    if (!user) {
+    const response = await buildUserResponse(req.user!.userId);
+    if (!response) {
       res.status(404).json({ error: "Пользователь не найден" });
       return;
     }
-
-    res.json({
-      id: user.id,
-      login: user.login,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      isActive: user.isActive,
-      emailConfirmed: user.emailConfirmed,
-      defaultDataAreaId: user.defaultDataAreaId,
-      createdAt: user.createdAt,
-    });
+    res.json(response.user);
   } catch (e) {
     next(e);
   }
@@ -376,7 +538,6 @@ authRouter.get("/settings", authenticate, async (req, res, next) => {
       .where(eq(sysUserSettingsTable.userId, userId))
       .limit(1);
 
-    // Only areas where user has Create permission
     const permissions = await db
       .select({
         dataAreaId: sysUserDataArea.dataAreaId,
@@ -390,7 +551,6 @@ authRouter.get("/settings", authenticate, async (req, res, next) => {
 
     let currentDataAreaId = settings?.currentDataAreaId ?? null;
 
-    // Auto-correct if current area is not creatable or missing
     if (permissions.length > 0 && (!currentDataAreaId || !permissions.some((p) => p.dataAreaId === currentDataAreaId))) {
       currentDataAreaId = permissions[0].dataAreaId;
       if (settings) {
@@ -419,7 +579,6 @@ authRouter.put("/settings", authenticate, async (req, res, next) => {
     const userId = req.user!.userId;
     const body = authSettingsSchema.parse(req.body);
 
-    // Verify user has canCreate on this DataArea
     const [perm] = await db
       .select()
       .from(sysUserDataArea)

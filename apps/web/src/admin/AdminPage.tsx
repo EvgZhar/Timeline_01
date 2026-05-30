@@ -61,8 +61,7 @@ function UsersTab() {
 
       // Sync data area permissions
       const current = userAreaIds;
-      const prevReq = await fetch(`/api/admin/users/${id}/data-areas`, { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } });
-      const prev: number[] = await prevReq.json();
+      const prev = await api.admin.users.dataAreas(id);
 
       const toAdd = current.filter((aid) => !prev.includes(aid));
       const toRemove = prev.filter((aid) => !current.includes(aid));

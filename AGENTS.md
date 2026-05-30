@@ -28,6 +28,8 @@ Seed: `admin`/`admin` (админ), `testuser`/`test1234` (обычный).
 | `npm run db:generate -w @timeline/api` | Drizzle: генерация миграции |
 | `npm run db:migrate` | применить миграции |
 | `npm run db:seed` | сид (вызывает `seed.ts`) |
+| `npm run db:cleanup-tokens -w @timeline/api` | очистка истёкших refresh-токенов |
+| `npm run rate-limit:reset -w @timeline/api` | сброс in-memory rate limiters |
 | `npx tsc --noEmit -p apps/web/tsconfig.json` | typecheck web |
 | `npm run dev -w @timeline/shared` | `tsc --watch` для shared |
 

@@ -4,6 +4,7 @@ import path from "node:path";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import cookieParser from "cookie-parser";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
@@ -29,8 +30,11 @@ if (!process.env.JWT_SECRET) {
   }
 }
 
+const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
+
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(cors({ origin: true }));
+app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(cookieParser());
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { api } from "../api/client";
 import { useAuth } from "./AuthContext";
 
 export function RegisterPage() {
@@ -14,7 +15,6 @@ export function RegisterPage() {
     lastName: "",
   });
   const [error, setError] = useState("");
-  const [registered, setRegistered] = useState(false);
 
   const update = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -37,47 +37,19 @@ export function RegisterPage() {
     }
 
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          login: form.login,
-          email: form.email,
-          password: form.password,
-          firstName: form.firstName,
-          lastName: form.lastName,
-        }),
+      const response = await api.auth.register({
+        login: form.login,
+        email: form.email,
+        password: form.password,
+        firstName: form.firstName,
+        lastName: form.lastName,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Ошибка регистрации");
-        return;
-      }
-      setAuth(data.token, data.user, data.currentDataAreaId);
-      setRegistered(true);
-    } catch {
-      setError("Ошибка сети");
+      setAuth(response.user, response.currentDataAreaId);
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка регистрации");
     }
   };
-
-  if (registered) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="w-full max-w-sm rounded-lg bg-white p-8 text-center shadow-md">
-          <h1 className="mb-4 text-2xl font-bold">Регистрация завершена</h1>
-          <p className="mb-4 text-slate-600">
-            На ваш email отправлено письмо для подтверждения. Пожалуйста, проверьте почту.
-          </p>
-          <button
-            onClick={() => navigate("/")}
-            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          >
-            Перейти к приложению
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   const inputClass = "w-full rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none";
 

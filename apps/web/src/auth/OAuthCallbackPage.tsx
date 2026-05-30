@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "./AuthContext";
 import { api } from "../api/client";
+import { useAuth } from "./AuthContext";
 
 export function OAuthCallbackPage() {
   const navigate = useNavigate();
@@ -18,10 +18,9 @@ export function OAuthCallbackPage() {
 
     api.auth
       .exchangeOAuthCode(code)
-      .then(async (data) => {
-        localStorage.setItem("token", data.token);
-        const user = await api.auth.me();
-        setAuth(data.token, user, user.defaultDataAreaId);
+      .then(async () => {
+        const [user, settings] = await Promise.all([api.auth.me(), api.auth.getSettings()]);
+        setAuth(user, settings.currentDataAreaId);
         navigate("/");
       })
       .catch((err) => {

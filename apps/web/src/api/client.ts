@@ -15,23 +15,39 @@ import type {
   ExchangeOAuthCodeResponse,
 } from "@timeline/shared";
 
-function getToken(): string | null {
+async function refreshAccessToken(): Promise<boolean> {
   try {
-    return localStorage.getItem("token");
+    const res = await fetch("/api/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+    });
+    return res.ok;
   } catch {
-    return null;
+    return false;
   }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...init?.headers as Record<string, string>,
   };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(path, { ...init, headers, credentials: "include" });
+
+  if (res.status === 401 && path !== "/api/auth/refresh" && path !== "/api/auth/login") {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      const retryRes = await fetch(path, { ...init, headers, credentials: "include" });
+      if (!retryRes.ok) {
+        const body = await retryRes.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error ?? retryRes.statusText);
+      }
+      if (retryRes.status === 204) return undefined as T;
+      return retryRes.json() as Promise<T>;
+    }
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? res.statusText);
@@ -46,6 +62,8 @@ export const api = {
       request<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
     register: (body: RegisterRequest) =>
       request<AuthResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
+    logout: () =>
+      request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
     me: () => request<UserDto>("/api/auth/me"),
     getSettings: () => request<AuthSettingsDto>("/api/auth/settings"),
     putSettings: (body: { currentDataAreaId: number }) =>

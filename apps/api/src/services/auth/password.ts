@@ -1,18 +1,13 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import bcrypt from "bcryptjs";
 
-const KEY_LENGTH = 64;
-const SEPARATOR = ":";
+const SALT_ROUNDS = 12;
 
-function hash(password: string): string {
-  const salt = randomBytes(32).toString("hex");
-  const derivedKey = scryptSync(password, salt, KEY_LENGTH);
-  return salt + SEPARATOR + derivedKey.toString("hex");
+async function hash(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
 }
 
-function verify(password: string, stored: string): boolean {
-  const [salt, key] = stored.split(SEPARATOR);
-  const derivedKey = scryptSync(password, salt, KEY_LENGTH);
-  return timingSafeEqual(derivedKey, Buffer.from(key, "hex"));
+async function verify(password: string, stored: string): Promise<boolean> {
+  return bcrypt.compare(password, stored);
 }
 
 export const passwordService = { hash, verify };

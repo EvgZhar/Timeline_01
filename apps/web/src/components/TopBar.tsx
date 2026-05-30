@@ -90,7 +90,10 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, filterCo
 
       <button
         type="button"
-        onClick={() => { logout(); navigate("/login"); }}
+        onClick={async () => {
+          await logout();
+          navigate("/login");
+        }}
         className="rounded-md border border-slate-300 bg-white p-2 text-slate-500 hover:bg-slate-100"
         title="Выйти"
       >

@@ -22,6 +22,13 @@
       "when": 1779821013549,
       "tag": "0002_late_triathlon",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780141475126,
+      "tag": "0003_talented_the_stranger",
+      "breakpoints": true
     }
   ]
 }

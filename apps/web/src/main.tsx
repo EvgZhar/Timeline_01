@@ -7,7 +7,16 @@ import App from "./App";
 import "./index.css";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: (failureCount, error) => {
+        if (error instanceof Error && /401|Требуется авторизация|Недействительный токен/.test(error.message))
+          return false;
+        return failureCount < 3;
+      },
+    },
+  },
 });
 
 createRoot(document.getElementById("root")!).render(
