@@ -80,6 +80,10 @@ export const api = {
       request<{ code: string }>(`/api/auth/oauth/${provider}/callback`, { method: "POST", body: JSON.stringify({ code }) }),
     exchangeOAuthCode: (code: string) =>
       request<ExchangeOAuthCodeResponse>("/api/auth/exchange-oauth-code", { method: "POST", body: JSON.stringify({ code }) }),
+    changePassword: (body: { currentPassword: string; newPassword: string }) =>
+      request<{ ok: boolean }>("/api/auth/change-password", { method: "POST", body: JSON.stringify(body) }),
+    updateProfile: (body: { firstName?: string; lastName?: string }) =>
+      request<UserDto>("/api/auth/profile", { method: "PUT", body: JSON.stringify(body) }),
   },
   admin: {
     users: {

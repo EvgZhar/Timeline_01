@@ -79,6 +79,16 @@ export const resendVerificationSchema = z.object({
   email: z.string().email("Некорректный email"),
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Введите текущий пароль"),
+  newPassword: z.string().min(4, "Минимум 4 символа"),
+});
+
+export const updateProfileSchema = z.object({
+  firstName: z.string().min(1).max(100).optional(),
+  lastName: z.string().min(1).max(100).optional(),
+});
+
 export type TimelineCreate = z.infer<typeof timelineCreateSchema>;
 export type EventCreate = z.infer<typeof eventCreateSchema>;
 export type TagCreate = z.infer<typeof tagCreateSchema>;

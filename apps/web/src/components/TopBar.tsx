@@ -1,7 +1,6 @@
-import { CalendarPlus, Layers, Search, LogOut, LayoutDashboard, Settings } from "lucide-react";
+import { CalendarPlus, Layers, Search, Settings } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "@/api/client";
-import { useNavigate } from "react-router-dom";
 import { TooltipButton } from "@/components/TooltipButton";
 
 interface TopBarProps {
@@ -9,13 +8,12 @@ interface TopBarProps {
   onAddEvent: () => void;
   onSettings: () => void;
   onSearch: () => void;
+  onProfile: () => void;
   filterCount?: number;
-  isAdmin?: boolean;
 }
 
-export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, filterCount = 0, isAdmin }: TopBarProps) {
-  const { logout, settings, currentDataAreaId, setCurrentDataAreaId } = useAuth();
-  const navigate = useNavigate();
+export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, filterCount = 0 }: TopBarProps) {
+  const { user, settings, currentDataAreaId, setCurrentDataAreaId } = useAuth();
 
   const handleAreaChange = async (areaId: number) => {
     try {
@@ -23,6 +21,10 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, filterCo
       setCurrentDataAreaId(areaId);
     } catch { /* ignore */ }
   };
+
+  const initials = user
+    ? ((user.firstName?.[0] ?? "") + (user.lastName?.[0] ?? "")).toUpperCase() || user.login[0].toUpperCase()
+    : "?";
 
   return (
     <header className="flex h-[10vh] min-h-[56px] items-center gap-3 border-b border-slate-200 bg-slate-50 px-4">
@@ -77,28 +79,13 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, filterCo
         <Settings size={20} />
       </TooltipButton>
 
-      {isAdmin && (
-        <button
-          type="button"
-          onClick={() => navigate("/admin")}
-          className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-700 hover:bg-amber-100"
-          title="Администрирование"
-        >
-          <LayoutDashboard size={18} />
-        </button>
-      )}
-
-      <button
-        type="button"
-        onClick={async () => {
-          await logout();
-          navigate("/login");
-        }}
-        className="rounded-md border border-slate-300 bg-white p-2 text-slate-500 hover:bg-slate-100"
-        title="Выйти"
+      <TooltipButton
+        label="Личный кабинет"
+        onClick={onProfile}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white hover:bg-blue-700"
       >
-        <LogOut size={18} />
-      </button>
+        {initials}
+      </TooltipButton>
     </header>
   );
 }

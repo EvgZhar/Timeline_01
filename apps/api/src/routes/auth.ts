@@ -10,6 +10,8 @@ import {
   resetPasswordSchema,
   verifyEmailSchema,
   resendVerificationSchema,
+  changePasswordSchema,
+  updateProfileSchema,
 } from "@timeline/shared";
 import { db } from "../db/index.js";
 import {
@@ -522,6 +524,84 @@ authRouter.get("/me", authenticate, async (req, res, next) => {
       return;
     }
     res.json(response.user);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// POST /auth/change-password
+authRouter.post("/change-password", authenticate, async (req, res, next) => {
+  try {
+    const body = changePasswordSchema.parse(req.body);
+    const userId = req.user!.userId;
+
+    const [user] = await db
+      .select()
+      .from(sysUserTable)
+      .where(eq(sysUserTable.id, userId))
+      .limit(1);
+    if (!user || !(await passwordService.verify(body.currentPassword, user.passwordHash))) {
+      res.status(400).json({ error: "Неверный текущий пароль" });
+      return;
+    }
+
+    const passwordHash = await passwordService.hash(body.newPassword);
+    await db
+      .update(sysUserTable)
+      .set({ passwordHash })
+      .where(eq(sysUserTable.id, userId));
+
+    // Revoke all refresh tokens for this user
+    await db
+      .update(sysRefreshTokenTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(sysRefreshTokenTable.userId, userId));
+
+    await logAudit(userId, "change_password", req);
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// PUT /auth/profile
+authRouter.put("/profile", authenticate, async (req, res, next) => {
+  try {
+    const body = updateProfileSchema.parse(req.body);
+    const userId = req.user!.userId;
+
+    const values: Record<string, unknown> = {};
+    if (body.firstName !== undefined) values.firstName = body.firstName;
+    if (body.lastName !== undefined) values.lastName = body.lastName;
+
+    if (Object.keys(values).length === 0) {
+      res.status(400).json({ error: "Нет полей для обновления" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(sysUserTable)
+      .set(values)
+      .where(eq(sysUserTable.id, userId))
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Пользователь не найден" });
+      return;
+    }
+
+    await logAudit(userId, "update_profile", req);
+    res.json({
+      id: updated.id,
+      login: updated.login,
+      email: updated.email,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      isActive: updated.isActive,
+      emailConfirmed: updated.emailConfirmed,
+      defaultDataAreaId: updated.defaultDataAreaId,
+      createdAt: updated.createdAt,
+    });
   } catch (e) {
     next(e);
   }

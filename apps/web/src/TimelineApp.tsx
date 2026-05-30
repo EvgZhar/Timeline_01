@@ -4,6 +4,7 @@ import { api } from "@/api/client";
 import { TopBar } from "./components/TopBar";
 import { EventSheet } from "./features/events/EventSheet";
 import { SettingsSheet } from "./features/settings/SettingsSheet";
+import { ProfileSheet } from "./features/profile/ProfileSheet";
 import { TimelinesSheet } from "./features/timelines/TimelinesSheet";
 import { TimelineCanvas } from "./features/timeline/TimelineCanvas";
 import { TagSearch } from "./features/tags/TagSearch";
@@ -13,9 +14,10 @@ import type { ViewRange } from "./features/timeline/timeScale";
 
 export function TimelineApp() {
   const qc = useQueryClient();
-  const { isAdmin, setSettings } = useAuth();
+  const { setSettings } = useAuth();
   const [timelinesOpen, setTimelinesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [eventSheet, setEventSheet] = useState<
     | { mode: "create"; initialDate?: string; initialTimelineId?: number }
@@ -173,8 +175,8 @@ export function TimelineApp() {
         onAddEvent={() => setEventSheet({ mode: "create" })}
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
+        onProfile={() => setProfileOpen(true)}
         filterCount={tagFilterIds.length + (textSearchQuery ? 1 : 0)}
-        isAdmin={isAdmin}
       />
       <FilterBar
         tagFilterIds={tagFilterIds}
@@ -216,6 +218,7 @@ export function TimelineApp() {
         onShowTagsOnTimelineChange={setShowTagsOnTimeline}
         onClearSettings={handleClearSettings}
       />
+      <ProfileSheet open={profileOpen} onOpenChange={setProfileOpen} />
       <TagSearch
         open={searchOpen}
         onOpenChange={setSearchOpen}
