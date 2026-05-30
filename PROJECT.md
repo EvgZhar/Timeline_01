@@ -71,27 +71,6 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 - **Git:** `data/` is in `.gitignore` — database files not committed
 - **Start:** `docker compose up -d`
 
-## Environment setup
-```bash
-cp .env.example .env
-docker compose up -d
-npm install
-npm run build -w @timeline/shared
-npm run db:generate -w @timeline/api
-npm run db:migrate
-npm run db:seed
-npm run dev
-```
-
-## Key scripts (from root package.json)
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start both API (port 3001) and Web (port 5173) |
-| `npm run build` | Build shared → api → web |
-| `npm run db:generate` | Generate Drizzle migration from schema |
-| `npm run db:migrate` | Apply pending migrations |
-| `npm run db:seed` | Seed database with test data |
-
 ## Auth API routes (`/api/auth`)
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
@@ -124,37 +103,9 @@ npm run dev
 | `/user-data-area` | POST | Set user rights on data area |
 | `/user-data-area` | DELETE | Remove user from data area |
 
-## Env variables
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `PORT` | API port (3001) |
-| `JWT_SECRET` | 128 hex chars for JWT signing |
-| `SETTINGS_ENCRYPTION_KEY` | 64 hex chars for settings encryption |
-| `SMTP_HOST` | SMTP server (e.g. smtp.yandex.ru) |
-| `SMTP_PORT` | SMTP port (465) |
-| `SMTP_USER` | SMTP user (email) |
-| `SMTP_PASS` | SMTP password (app password) |
-| `YANDEX_CLIENT_ID` | Yandex OAuth app ID |
-| `YANDEX_CLIENT_SECRET` | Yandex OAuth app secret |
-| `VK_CLIENT_ID` | VK OAuth app ID (будет добавлено позже) |
-| `VK_CLIENT_SECRET` | VK OAuth app secret (будет добавлено позже) |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID (будет добавлено позже) |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret (будет добавлено позже) |
-| `AUTH_CALLBACK_URL` | Base URL for OAuth callbacks (e.g. http://localhost:3001) |
-| `FRONTEND_URL` | Frontend URL for OAuth redirects (e.g. http://localhost:5173) |
+## Agent instructions
 
-## AI agent rules
-1. **DB schema** (`apps/api/src/db/schema.ts`) — change with care, always run `npm run db:generate` after any column/table change
-2. **Shared types** (`packages/shared/src/types.ts`) — update when adding new fields to DTOs
-3. **Zod schemas** (`packages/shared/src/schemas.ts`) — keep in sync with DB schema
-4. **API changes** require rebuilding shared: `npm run build -w @timeline/shared`
-5. **Always run `npx tsc --noEmit -p apps/web/tsconfig.json`** after changes
-6. **Never commit** `.env`, `data/`, `node_modules/`
-7. **DB migrations** are generated into `apps/api/drizzle/` — these are committed to Git
-8. **PostgreSQL** runs via Docker: `docker compose up -d` before `npm run db:migrate`
-9. **Delete result** in pg returns `rowCount` (not `changes` as in SQLite)
-10. **Yandex Disk removed** — `createFromUpload` stores metadata without cloud upload; preview falls back to `originalLink`
+См. [`AGENTS.md`](./AGENTS.md) — памятка для OpenCode-сессий (команды, архитектура, особенности).
 
 ## URL references
 - Web UI: http://localhost:5173
