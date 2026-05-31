@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { formatDisplay, toDate } from "@timeline/shared";
+import { formatCentury, formatDisplay, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { assignBarThickness, assignEventTracks } from "./eventLayout";
@@ -8,6 +8,9 @@ import { ZoomControls } from "./ZoomControls";
 import {
   computeInitialRange,
   generateTicks,
+  msToDay,
+  msToMonth,
+  msToYear,
   xForTime,
   timeForX,
   type ViewRange,
@@ -203,8 +206,10 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
 
         const innerX = xRel - padding.left;
         const ms = timeForX(innerX, effectiveRange, innerW);
-        const d = new Date(Math.round(ms));
-        const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        const y = msToYear(ms);
+        const m = msToMonth(ms) + 1;
+        const dVal = msToDay(ms);
+        const iso = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(dVal).padStart(2, "0")}`;
         const displayDate = formatDisplay(iso);
         onEmptyClick(displayDate, targetTimelineId);
       }}
@@ -447,11 +452,21 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const endParts = ey.split("-");
           const isEndDec31 = endParts[1] === "12" && endParts[2] === "31";
           const isEndJan1 = endParts[1] === "01" && endParts[2] === "01";
+
+          const centuryStart = formatCentury(sy);
+          const centuryEnd = formatCentury(ey);
+
           let dateStr = "";
-          if (isEndDec31 || isEndJan1) {
-            dateStr = startParts[0] === endParts[0] ? startParts[0] : `${startParts[0]} - ${endParts[0]}`;
+          if (centuryStart && centuryEnd) {
+            dateStr = centuryStart === centuryEnd ? centuryStart : `${centuryStart} – ${centuryEnd}`;
+          } else if (centuryStart) {
+            dateStr = centuryStart;
+          } else if (centuryEnd) {
+            dateStr = `${formatDisplay(sy)} – ${centuryEnd}`;
+          } else if (isEndDec31 || isEndJan1) {
+            dateStr = startParts[0] === endParts[0] ? startParts[0] : `${startParts[0]} – ${endParts[0]}`;
           } else {
-            dateStr = `${formatDisplay(sy)} - ${formatDisplay(ey)}`;
+            dateStr = `${formatDisplay(sy)} – ${formatDisplay(ey)}`;
           }
 
           const notes = ev.notes ?? "";

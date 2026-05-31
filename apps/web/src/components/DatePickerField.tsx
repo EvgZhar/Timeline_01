@@ -1,6 +1,12 @@
 import { Calendar } from "lucide-react";
-import { formatDisplay, parseDisplay, toDate } from "@timeline/shared";
-import { useEffect, useRef, useState } from "react";
+import {
+  formatDisplay,
+  parseDisplay,
+  daysInMonth,
+  zellerWeekday,
+  toStorage,
+} from "@timeline/shared";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 const MONTHS = [
   "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
@@ -14,20 +20,37 @@ interface DatePickerFieldProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  popupAlign?: "left" | "right";
 }
 
 function getCalendarDays(year: number, month: number): (number | null)[] {
-  const firstDay = new Date(Date.UTC(year, month, 1));
-  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  let startWeekday = firstDay.getUTCDay(); // 0=Sun, 1=Mon
-  if (startWeekday === 0) startWeekday = 7;
+  const totalDays = daysInMonth(year, month + 1);
+  const startWeekday = zellerWeekday(year, month + 1, 1);
   const days: (number | null)[] = [];
-  for (let i = 1; i < startWeekday; i++) days.push(null);
-  for (let d = 1; d <= daysInMonth; d++) days.push(d);
+  for (let i = 1; i <= startWeekday; i++) days.push(null);
+  for (let d = 1; d <= totalDays; d++) days.push(d);
   return days;
 }
 
-export function DatePickerField({ label, value, onChange, placeholder }: DatePickerFieldProps) {
+function parseViewValue(value: string): {
+  year: number;
+  month: number;
+  day: number | null;
+} {
+  try {
+    const iso = parseDisplay(value);
+    const parts = iso.split("-");
+    return {
+      year: Number(parts[0]),
+      month: Number(parts[1]) - 1,
+      day: Number(parts[2]),
+    };
+  } catch {
+    return { year: new Date().getUTCFullYear(), month: new Date().getUTCMonth(), day: null };
+  }
+}
+
+export function DatePickerField({ label, value, onChange, placeholder, popupAlign = "left" }: DatePickerFieldProps) {
   const [open, setOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const [viewYear, setViewYear] = useState(new Date().getUTCFullYear());
@@ -36,13 +59,10 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
 
   useEffect(() => {
     setInputValue(value);
-    try {
-      const iso = parseDisplay(value);
-      const d = toDate(iso);
-      setViewYear(d.getUTCFullYear());
-      setViewMonth(d.getUTCMonth());
-    } catch {
-      // ignore invalid initial value
+    const parsed = parseViewValue(value);
+    if (parsed.day !== null) {
+      setViewYear(parsed.year);
+      setViewMonth(parsed.month);
     }
   }, [value]);
 
@@ -71,7 +91,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
   };
 
   const selectDate = (day: number) => {
-    const iso = `${String(viewYear).padStart(4, "0")}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const iso = toStorage(viewYear, viewMonth + 1, day);
     const display = formatDisplay(iso);
     onChange(display);
     setOpen(false);
@@ -86,15 +106,32 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
   let selectedDay: number | null = null;
   try {
     const iso = parseDisplay(value);
-    const d = toDate(iso);
-    if (d.getUTCFullYear() === viewYear && d.getUTCMonth() === viewMonth) {
-      selectedDay = d.getUTCDate();
+    const parts = iso.split("-");
+    const sy = Number(parts[0]);
+    const sm = Number(parts[1]);
+    const sd = Number(parts[2]);
+    if (sy === viewYear && sm - 1 === viewMonth) {
+      selectedDay = sd;
     }
   } catch {
     // ignore
   }
 
-  const yearOptions = Array.from({ length: 2100 - 1000 + 1 }, (_, i) => 1000 + i);
+  const isBce = viewYear < 1;
+
+  const toggleEra = useCallback(() => {
+    setViewYear((y) => (y < 1 ? (y === 0 ? 1 : -y) : -(y - 1)));
+  }, []);
+
+  const handleCalYearChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const raw = e.target.value;
+      if (raw === "" || raw === "-") return;
+      const n = Number(raw);
+      if (!Number.isNaN(n)) setViewYear(n);
+    },
+    [],
+  );
 
   return (
     <div ref={containerRef} className="relative">
@@ -104,7 +141,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
           <input
             className="w-full rounded border px-2 py-1"
             value={inputValue}
-            placeholder={placeholder}
+            placeholder={placeholder ?? "ДД.ММ.ГГГГ"}
             onChange={handleInputChange}
             onBlur={handleInputBlur}
             onKeyDown={(e) => {
@@ -126,7 +163,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
       </label>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-64 rounded border bg-white p-2 shadow-lg">
+        <div className={`absolute z-50 mt-1 w-64 rounded border bg-white p-2 shadow-lg ${popupAlign === "right" ? "right-0" : "left-0"}`}>
           {/* Header: month/year selectors + arrows */}
           <div className="mb-2 flex items-center justify-between">
             <button
@@ -144,7 +181,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
               ◀
             </button>
 
-            <div className="flex gap-1">
+            <div className="flex items-center gap-1">
               <select
                 className="rounded border px-1 py-0.5 text-sm"
                 value={viewMonth}
@@ -156,17 +193,12 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
                   </option>
                 ))}
               </select>
-              <select
-                className="rounded border px-1 py-0.5 text-sm"
+              <input
+                type="number"
+                className="w-20 rounded border px-1 py-0.5 text-sm text-right"
                 value={viewYear}
-                onChange={(e) => setViewYear(Number(e.target.value))}
-              >
-                {yearOptions.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+                onChange={handleCalYearChange}
+              />
             </div>
 
             <button
@@ -183,6 +215,30 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
             >
               ▶
             </button>
+          </div>
+
+          {/* Era toggle */}
+          <div className="mb-2 flex justify-center gap-3 text-xs">
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="radio"
+                name={`era-${label}`}
+                checked={!isBce}
+                onChange={() => {
+                  if (isBce) setViewYear((y) => (y === 0 ? 1 : -y));
+                }}
+              />
+              н.э.
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input
+                type="radio"
+                name={`era-${label}`}
+                checked={isBce}
+                onChange={toggleEra}
+              />
+              до н.э.
+            </label>
           </div>
 
           {/* Weekday headers */}

@@ -2,6 +2,9 @@ import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema.js";
 
+// Return DATE columns as strings (ISO 8601 extended) — supports BCE years
+pg.types.setTypeParser(pg.types.builtins.DATE, (val: string) => val);
+
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
 });

@@ -451,6 +451,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                 value={endDate}
                 onChange={(v) => setEndDate(v)}
                 placeholder="ДД.ММ.ГГГГ"
+                popupAlign="right"
               />
             </div>
           </div>
@@ -601,6 +602,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                 value={endDate}
                 onChange={(v) => setEndDate(v)}
                 placeholder="ДД.ММ.ГГГГ"
+                popupAlign="right"
               />
             </div>
           </div>
