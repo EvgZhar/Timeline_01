@@ -9,8 +9,8 @@ export function assignEventTracks(
   const sorted = [...events]
     .map((ev) => ({
       id: ev.id,
-      startMs: toDate(ev.startDate).getTime(),
-      endMs: toDate(ev.endDate).getTime(),
+      startMs: new Date(ev.startDate).getTime(),
+      endMs: new Date(ev.endDate).getTime(),
     }))
     .sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
 

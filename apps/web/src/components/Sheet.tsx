@@ -40,7 +40,7 @@ export function Sheet({
       />
       <aside
         className={cn(
-          "fixed top-0 z-50 flex h-full w-[456px] max-w-[95vw] flex-col bg-white shadow-xl",
+          "fixed top-0 z-50 flex h-full w-[380px] max-w-[90vw] flex-col bg-white shadow-xl",
           side === "left" ? "left-0" : "right-0",
         )}
       >

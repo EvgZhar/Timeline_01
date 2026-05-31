@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { compareIso } from "./dates.js";
 
 export const timelineCreateSchema = z.object({
   name: z.string().min(3, "Минимум 3 символа").max(60),
@@ -9,21 +8,17 @@ export const timelineCreateSchema = z.object({
 
 export const timelineUpdateSchema = timelineCreateSchema.partial();
 
-function isoYear(iso: string): number {
-  return Number(iso.split("-")[0]);
-}
-
 export const eventCreateSchema = z
   .object({
     name: z.string().min(1).max(255),
-    startDate: z.string().regex(/^-?\d{1,5}-\d{2}-\d{2}$/),
-    endDate: z.string().regex(/^-?\d{1,5}-\d{2}-\d{2}$/).optional().nullable(),
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
     notes: z.string().optional().nullable(),
     timelineIds: z.array(z.number().int().positive()).min(1),
     tagIds: z.array(z.number().int().positive()).optional().default([]),
   })
   .refine(
-    (d) => !d.endDate || compareIso(d.endDate, d.startDate) >= 0,
+    (d) => !d.endDate || d.endDate >= d.startDate,
     { message: "Дата окончания должна быть ≥ даты начала", path: ["endDate"] },
   );
 
