@@ -1,8 +1,11 @@
 /** Display format: ДД.ММ.ГГГГ */
-const DISPLAY_RE = /^(\d{2})\.(\d{2})\.(\d{4})$/;
+const DISPLAY_RE = /^(\d{2})\.(\d{2})\.(\d{1,4})$/;
 
-/** Storage format: YYYY-MM-DD */
-const STORAGE_RE = /^(\d+)-(\d{2})-(\d{2})$/;
+/** BCE display format: ДД.ММ.ГГГГ до н.э. */
+const BCE_DISPLAY_RE = /^(\d{2})\.(\d{2})\.(\d{1,4}) до н\.э\.$/;
+
+/** Storage format: YYYY-MM-DD (year may be negative) */
+const STORAGE_RE = /^(-?\d+)-(\d{2})-(\d{2})$/;
 
 export interface HistoricalDate {
   year: number;
@@ -15,13 +18,30 @@ export function formatDisplay(iso: string): string {
   const m = STORAGE_RE.exec(iso);
   if (!m) throw new Error(`Invalid ISO date: ${iso}`);
   const [, y, mo, d] = m;
-  return `${d}.${mo}.${y}`;
+  const year = Number(y);
+  if (year < 0) {
+    return `${d}.${mo}.${String(-year)} до н.э.`;
+  }
+  return `${d}.${mo}.${String(year)}`;
 }
 
 export function parseDisplay(input: string): string {
   const trimmed = input.trim();
-  const m = DISPLAY_RE.exec(trimmed);
-  if (!m) throw new Error("Дата должна быть в формате ДД.ММ.ГГГГ");
+
+  let m = BCE_DISPLAY_RE.exec(trimmed);
+  if (m) {
+    const [, d, mo, y] = m;
+    const day = Number(d);
+    const month = Number(mo);
+    const year = -Number(y);
+    if (month < 1 || month > 12) throw new Error("Некорректный месяц");
+    const maxDay = daysInMonth(Math.abs(year), month);
+    if (day < 1 || day > maxDay) throw new Error("Некорректный день");
+    return toStorage(year, month, day);
+  }
+
+  m = DISPLAY_RE.exec(trimmed);
+  if (!m) throw new Error("Дата должна быть в формате ДД.ММ.ГГГГ или ДД.ММ.ГГГГ до н.э.");
   const [, d, mo, y] = m;
   const day = Number(d);
   const month = Number(mo);
@@ -29,34 +49,53 @@ export function parseDisplay(input: string): string {
   if (month < 1 || month > 12) throw new Error("Некорректный месяц");
   const maxDay = daysInMonth(year, month);
   if (day < 1 || day > maxDay) throw new Error("Некорректный день");
-  if (year < 1) throw new Error("Год должен быть ≥ 1 (до н. э. — в следующих версиях)");
+  if (year < 1) throw new Error("Год должен быть ≥ 1");
   return toStorage(year, month, day);
 }
 
 export function toStorage(year: number, month: number, day: number): string {
-  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const yStr = year < 0
+    ? `-${String(-year).padStart(4, "0")}`
+    : String(year).padStart(4, "0");
+  return `${yStr}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 export function fromStorage(iso: string): HistoricalDate {
   const m = STORAGE_RE.exec(iso);
   if (!m) throw new Error(`Invalid ISO date: ${iso}`);
+  const year = Number(m[1]);
   return {
-    year: Number(m[1]),
+    year,
     month: Number(m[2]),
     day: Number(m[3]),
-    era: "CE",
+    era: year > 0 ? "CE" : "BCE",
   };
 }
 
 export function toDate(iso: string): Date {
   const { year, month, day } = fromStorage(iso);
+  if (year < 1) {
+    return new Date((year - 1970) * 365.25 * 24 * 60 * 60 * 1000);
+  }
   return new Date(Date.UTC(year, month - 1, day));
 }
 
 export function compareIso(a: string, b: string): number {
-  return a.localeCompare(b);
+  const ma = STORAGE_RE.exec(a);
+  const mb = STORAGE_RE.exec(b);
+  if (!ma || !mb) throw new Error(`Invalid ISO date for comparison: ${a}, ${b}`);
+  const ya = Number(ma[1]), yb = Number(mb[1]);
+  if (ya !== yb) return ya - yb;
+  return a.slice(5).localeCompare(b.slice(5));
+}
+
+const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeap(y: number): boolean {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
 }
 
 function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
+  if (month === 2) return isLeap(Math.abs(year)) ? 29 : 28;
+  return MONTH_DAYS[month - 1];
 }

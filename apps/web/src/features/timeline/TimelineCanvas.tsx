@@ -204,8 +204,12 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
         const innerX = xRel - padding.left;
         const ms = timeForX(innerX, effectiveRange, innerW);
         const d = new Date(Math.round(ms));
-        const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-        const displayDate = formatDisplay(iso);
+        const y = d.getUTCFullYear();
+        const yStr = y < 0 ? "-" + String(-y).padStart(4, "0") : String(y).padStart(4, "0");
+        const iso = `${yStr}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        const displayDate = (() => {
+          try { return formatDisplay(iso); } catch { return iso; }
+        })();
         onEmptyClick(displayDate, targetTimelineId);
       }}
     >
@@ -220,24 +224,16 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
         </defs>
         <rect width={size.w} height={size.h} fill="white" />
         {ticks.map((t, i) => (
-          <g key={i}>
-            <line
-              x1={padding.left + t.x}
-              y1={padding.top}
-              x2={padding.left + t.x}
-              y2={size.h - padding.bottom}
-              stroke="#e2e8f0"
-            />
-            <text
-              x={padding.left + t.x}
-              y={padding.top - 8}
-              textAnchor="middle"
-              fontSize={11}
-              fill="#64748b"
-            >
-              {t.label}
-            </text>
-          </g>
+          <text
+            key={i}
+            x={padding.left + t.x}
+            y={padding.top - 8}
+            textAnchor="middle"
+            fontSize={11}
+            fill="#64748b"
+          >
+            {t.label}
+          </text>
         ))}
 
         {visibleTimelines.map((tl, li) => {
@@ -318,6 +314,18 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 stroke="#cbd5e1"
               />
 
+              {ticks.map((t, gi) => (
+                <line
+                  key={gi}
+                  x1={padding.left + t.x}
+                  y1={y0}
+                  x2={padding.left + t.x}
+                  y2={y0 + laneH}
+                  stroke="#94a3b8"
+                  strokeWidth={0.5}
+                  opacity={0.2}
+                />
+              ))}
               {laneEvents.map((ev) => {
                 const x1 =
                   padding.left +

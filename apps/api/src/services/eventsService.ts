@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 import type { EventCreate, EventDto } from "@timeline/shared";
+import { fromStorage } from "@timeline/shared";
 import { db } from "../db/index.js";
 import {
   documentEventLink,
@@ -11,6 +12,22 @@ import {
   timelineTable,
 } from "../db/schema.js";
 import { getTimelineIdsForEvents } from "./timelinesService.js";
+
+const PG_BCE_RE = /^(\d{4}-\d{2}-\d{2}) BC$/;
+
+function toDbDate(iso: string): string {
+  const { year, month, day, era } = fromStorage(iso);
+  if (era === "BCE") {
+    return `${String(-year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")} BC`;
+  }
+  return iso;
+}
+
+function fromDbDate(dbVal: string): string {
+  const m = PG_BCE_RE.exec(dbVal);
+  if (m) return `-${m[1]}`;
+  return dbVal;
+}
 
 async function loadEventRelations(eventIds: number[]): Promise<{
   timelines: Map<number, { id: number; name: string }[]>;
@@ -112,8 +129,8 @@ function toDto(
   return {
     id: row.id,
     name: row.name,
-    startDate: row.startDate,
-    endDate: row.endDate ?? row.startDate,
+    startDate: fromDbDate(row.startDate),
+    endDate: fromDbDate(row.endDate ?? row.startDate),
     notes: row.notes,
     dataAreaId: row.dataAreaId,
     createdDateTime: row.createdDateTime?.toISOString() ?? new Date().toISOString(),
@@ -187,8 +204,8 @@ export async function createEvent(data: EventCreate, dataAreaId?: number | null)
     .insert(eventTable)
     .values({
       name: data.name,
-      startDate: data.startDate,
-      endDate,
+      startDate: toDbDate(data.startDate),
+      endDate: toDbDate(endDate),
       notes: data.notes ?? null,
       dataAreaId,
     })
@@ -210,8 +227,8 @@ export async function updateEvent(id: number, data: EventCreate): Promise<EventD
     .update(eventTable)
     .set({
       name: data.name,
-      startDate: data.startDate,
-      endDate,
+      startDate: toDbDate(data.startDate),
+      endDate: toDbDate(endDate),
       notes: data.notes ?? null,
     })
     .where(eq(eventTable.id, id))

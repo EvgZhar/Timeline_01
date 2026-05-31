@@ -60,7 +60,7 @@ export async function getRecentTags(): Promise<TagDto[]> {
     .from(tagEventLink)
     .innerJoin(tagTable, eq(tagEventLink.tagId, tagTable.id))
     .groupBy(tagTable.id)
-    .orderBy(desc(sql`lastUsed`))
+    .orderBy(desc(sql`"lastUsed"`))
     .limit(12);
   return rows.map((row) => toDto(row as typeof tagTable.$inferSelect));
 }

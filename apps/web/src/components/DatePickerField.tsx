@@ -1,5 +1,5 @@
 import { Calendar } from "lucide-react";
-import { formatDisplay, parseDisplay, toDate } from "@timeline/shared";
+import { formatDisplay, parseDisplay, toStorage, fromStorage } from "@timeline/shared";
 import { useEffect, useRef, useState } from "react";
 
 const MONTHS = [
@@ -32,15 +32,18 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
   const [inputValue, setInputValue] = useState(value);
   const [viewYear, setViewYear] = useState(new Date().getUTCFullYear());
   const [viewMonth, setViewMonth] = useState(new Date().getUTCMonth());
+  const [era, setEra] = useState<"CE" | "BCE">("CE");
+  const [yearStr, setYearStr] = useState(String(viewYear));
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setInputValue(value);
     try {
-      const iso = parseDisplay(value);
-      const d = toDate(iso);
-      setViewYear(d.getUTCFullYear());
-      setViewMonth(d.getUTCMonth());
+      const hd = fromStorage(parseDisplay(value));
+      setViewYear(Math.abs(hd.year));
+      setYearStr(String(Math.abs(hd.year)));
+      setEra(hd.era);
+      setViewMonth(hd.month - 1);
     } catch {
       // ignore invalid initial value
     }
@@ -71,7 +74,8 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
   };
 
   const selectDate = (day: number) => {
-    const iso = `${String(viewYear).padStart(4, "0")}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const signedYear = era === "BCE" ? -viewYear : viewYear;
+    const iso = toStorage(signedYear, viewMonth + 1, day);
     const display = formatDisplay(iso);
     onChange(display);
     setOpen(false);
@@ -85,16 +89,14 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
 
   let selectedDay: number | null = null;
   try {
-    const iso = parseDisplay(value);
-    const d = toDate(iso);
-    if (d.getUTCFullYear() === viewYear && d.getUTCMonth() === viewMonth) {
-      selectedDay = d.getUTCDate();
+    const hd = fromStorage(parseDisplay(value));
+    const signedViewYear = era === "BCE" ? -viewYear : viewYear;
+    if (hd.year === signedViewYear && hd.month - 1 === viewMonth) {
+      selectedDay = hd.day;
     }
   } catch {
     // ignore
   }
-
-  const yearOptions = Array.from({ length: 2100 - 1000 + 1 }, (_, i) => 1000 + i);
 
   return (
     <div ref={containerRef} className="relative">
@@ -126,7 +128,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
       </label>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-64 rounded border bg-white p-2 shadow-lg">
+        <div className="absolute right-0 z-50 mt-1 w-64 rounded border bg-white p-2 shadow-lg">
           {/* Header: month/year selectors + arrows */}
           <div className="mb-2 flex items-center justify-between">
             <button
@@ -144,7 +146,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
               ◀
             </button>
 
-            <div className="flex gap-1">
+            <div className="flex items-center gap-1">
               <select
                 className="rounded border px-1 py-0.5 text-sm"
                 value={viewMonth}
@@ -156,17 +158,26 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
                   </option>
                 ))}
               </select>
-              <select
-                className="rounded border px-1 py-0.5 text-sm"
-                value={viewYear}
-                onChange={(e) => setViewYear(Number(e.target.value))}
-              >
-                {yearOptions.map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+              <input
+                type="text"
+                className="w-16 rounded border px-1 py-0.5 text-center text-sm"
+                value={yearStr}
+                onChange={(e) => setYearStr(e.target.value)}
+                onBlur={() => {
+                  const y = Number(yearStr);
+                  if (!isNaN(y) && y >= 1) {
+                    setViewYear(y);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const y = Number(yearStr);
+                    if (!isNaN(y) && y >= 1) {
+                      setViewYear(y);
+                    }
+                  }
+                }}
+              />
             </div>
 
             <button
@@ -183,6 +194,28 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
             >
               ▶
             </button>
+          </div>
+
+          {/* Era row */}
+          <div className="mb-2 flex justify-center gap-3 text-xs">
+            <label className="flex cursor-pointer items-center gap-1">
+              <input
+                type="radio"
+                name="era"
+                checked={era === "CE"}
+                onChange={() => setEra("CE")}
+              />
+              н.э.
+            </label>
+            <label className="flex cursor-pointer items-center gap-1">
+              <input
+                type="radio"
+                name="era"
+                checked={era === "BCE"}
+                onChange={() => setEra("BCE")}
+              />
+              до н.э.
+            </label>
           </div>
 
           {/* Weekday headers */}

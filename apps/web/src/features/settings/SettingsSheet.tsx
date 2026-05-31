@@ -19,10 +19,19 @@ interface SettingsSheetProps {
   onClearSettings?: () => void;
 }
 
+function isoYear(year: number): string {
+  return year < 0 ? "-" + String(-year).padStart(4, "0") : String(year).padStart(4, "0");
+}
+
 function msToDisplay(ms: number): string {
   const d = new Date(ms);
-  const iso = `${String(d.getUTCFullYear()).padStart(4, "0")}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-  return formatDisplay(iso);
+  const y = d.getUTCFullYear();
+  const iso = `${isoYear(y)}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  try {
+    return formatDisplay(iso);
+  } catch {
+    return `${d.getUTCDate()}.${d.getUTCMonth() + 1}.${y}`;
+  }
 }
 
 function hexToInt(hex: string): number {
