@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { formatDisplay, toDate } from "@timeline/shared";
+import { formatCenturyYear, formatDisplay, fromStorage, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { assignBarThickness, assignEventTracks } from "./eventLayout";
@@ -84,7 +84,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
   const padding = { left: 48, right: 24, top: 48, bottom: 48 };
   const innerW = size.w - padding.left - padding.right;
   const laneCount = Math.max(visibleTimelines.length, 1);
-  const laneH = (size.h - padding.top - padding.bottom) / laneCount;
+  const GAP = 6;
+  const laneH = (size.h - padding.top - padding.bottom - GAP * Math.max(0, laneCount - 1)) / laneCount;
 
   useEffect(() => {
     const node = containerRef.current;
@@ -192,9 +193,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
 
         let targetTimelineId: number | null = null;
         for (let li = 0; li < laneCount; li++) {
-          const y0 = padding.top + li * laneH;
-          const yMid = y0 + laneH / 2;
-          if (Math.abs(yRel - yMid) <= 12) {
+          const y0 = padding.top + li * (laneH + GAP);
+          const y1 = y0 + laneH;
+          if (yRel >= y0 && yRel <= y1) {
             targetTimelineId = visibleTimelines[li].id;
             break;
           }
@@ -237,7 +238,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
         ))}
 
         {visibleTimelines.map((tl, li) => {
-          const y0 = padding.top + li * laneH;
+          const y0 = padding.top + li * (laneH + GAP);
           const yMid = y0 + laneH / 2;
           const laneEvents = events.filter((ev) => {
             const inTimeline = ev.timelines.some((t) => t.id === tl.id);
@@ -286,6 +287,16 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 fill={hovered && laneEvents.some((e) => e.id === hovered) ? "#eff6ff" : "#fafafa"}
                 stroke="#e2e8f0"
               />
+              {li < visibleTimelines.length - 1 && (
+                <rect
+                  x={padding.left}
+                  y={y0 + laneH}
+                  width={innerW}
+                  height={GAP}
+                  fill="#ffffff"
+                  stroke="#cbd5e1"
+                />
+              )}
               {tl.iconUrl ? (
                 <image
                   href={tl.iconUrl}
@@ -320,7 +331,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                   x1={padding.left + t.x}
                   y1={y0}
                   x2={padding.left + t.x}
-                  y2={y0 + laneH}
+                  y2={y0 + laneH + (li < visibleTimelines.length - 1 ? GAP : 0)}
                   stroke="#94a3b8"
                   strokeWidth={0.5}
                   opacity={0.2}
@@ -451,15 +462,32 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
 
           const sy = ev.startDate;
           const ey = ev.endDate;
-          const startParts = sy.split("-");
-          const endParts = ey.split("-");
-          const isEndDec31 = endParts[1] === "12" && endParts[2] === "31";
-          const isEndJan1 = endParts[1] === "01" && endParts[2] === "01";
+          const startDate = fromStorage(sy);
+          const endDate = fromStorage(ey);
+          const isEndDec31 = endDate.month === 12 && endDate.day === 31;
+          const isEndJan1 = endDate.month === 1 && endDate.day === 1;
           let dateStr = "";
           if (isEndDec31 || isEndJan1) {
-            dateStr = startParts[0] === endParts[0] ? startParts[0] : `${startParts[0]} - ${endParts[0]}`;
+            const sya = startDate.year;
+            const eya = endDate.year;
+            const yr = (y: number) => `${y} г`;
+            const startIsJan1 = startDate.month === 1 && startDate.day === 1;
+            const endIsJan1 = endDate.month === 1 && endDate.day === 1;
+            const startCentury = startIsJan1 ? formatCenturyYear(startDate.year) : null;
+            const endCentury = endIsJan1 ? formatCenturyYear(endDate.year) : null;
+            if (startCentury && endCentury && sya === eya) {
+              dateStr = startCentury;
+            } else if (startCentury && endCentury) {
+              dateStr = `${startCentury} - ${endCentury}`;
+            } else if (startCentury && !endCentury) {
+              dateStr = `${startCentury} - ${yr(eya)}`;
+            } else if (!startCentury && endCentury) {
+              dateStr = `${yr(sya)} - ${endCentury}`;
+            } else {
+              dateStr = sya === eya ? yr(sya) : `${yr(sya)} - ${yr(eya)}`;
+            }
           } else {
-            dateStr = `${formatDisplay(sy)} - ${formatDisplay(ey)}`;
+            dateStr = sy === ey ? formatDisplay(sy) : `${formatDisplay(sy)} - ${formatDisplay(ey)}`;
           }
 
           const notes = ev.notes ?? "";
@@ -469,7 +497,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
           const tlIdx = visibleTimelines.findIndex((tl) => ev.timelines.some((t) => t.id === tl.id));
           const laneIdx = tlIdx >= 0 ? tlIdx : 0;
-          const yMid = padding.top + laneIdx * laneH + laneH / 2;
+          const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
           const ly = yMid - 20;
 
           const tooltipW = 230;

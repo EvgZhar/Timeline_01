@@ -80,6 +80,28 @@ export function toDate(iso: string): Date {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
+const ROMAN: [number, string][] = [
+  [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"],
+  [100, "C"], [90, "XC"], [50, "L"], [40, "XL"],
+  [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+];
+
+function toRoman(n: number): string {
+  let r = "";
+  for (const [v, s] of ROMAN) {
+    while (n >= v) { r += s; n -= v; }
+  }
+  return r;
+}
+
+export function formatCenturyYear(year: number): string | null {
+  const absYear = Math.abs(year);
+  if (absYear === 0 || absYear % 100 !== 0) return null;
+  const century = Math.ceil(absYear / 100);
+  const suffix = year < 0 ? " в днэ" : " в";
+  return `${toRoman(century)}${suffix}`;
+}
+
 export function compareIso(a: string, b: string): number {
   const ma = STORAGE_RE.exec(a);
   const mb = STORAGE_RE.exec(b);
