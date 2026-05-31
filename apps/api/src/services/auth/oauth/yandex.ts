@@ -26,6 +26,7 @@ export const yandexProvider: OAuthProvider = {
         code,
         client_id: process.env.YANDEX_CLIENT_ID ?? "",
         client_secret: process.env.YANDEX_CLIENT_SECRET ?? "",
+        redirect_uri: `${process.env.AUTH_CALLBACK_URL ?? "http://localhost:3001"}/api/auth/oauth/yandex/callback`,
       }),
     });
     const data = await res.json() as { access_token?: string };
