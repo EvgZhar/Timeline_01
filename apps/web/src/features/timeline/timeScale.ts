@@ -45,7 +45,7 @@ export function formatTick(ms: number, stepMs: number): string {
 
   const year = Math.round(1970 + ms / yearMs);
 
-  if (stepMs >= yearMs * 0.9) return formatCenturyYear(year) ?? `${year} г`;
+  if (stepMs >= yearMs * 0.9) return formatCenturyYear(year) ?? `${year}`;
 
   if (stepMs >= monthMs * 0.9) {
     const month = Math.floor((ms - (year - 1970) * yearMs) / monthMs) + 1;
