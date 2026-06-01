@@ -65,9 +65,21 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
   };
 
   const handleInputBlur = () => {
+    let val = inputValue.trim();
+
+    const yearOnlyRe = /^(-?)\s*(\d{1,5})(?:\s*днэ)?$/i;
+    const m = yearOnlyRe.exec(val);
+    if (m) {
+      const hasMinus = m[1] !== "";
+      const hasDne = /днэ$/i.test(val.trim());
+      const absYear = Number(m[2]);
+      const isBce = hasMinus || hasDne;
+      val = isBce ? `01.01.${absYear} днэ` : `01.01.${absYear}`;
+    }
+
     try {
-      parseDisplay(inputValue);
-      onChange(inputValue);
+      parseDisplay(val);
+      onChange(val);
     } catch {
       setInputValue(value);
     }
