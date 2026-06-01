@@ -214,7 +214,7 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
                 checked={era === "BCE"}
                 onChange={() => setEra("BCE")}
               />
-              до н.э.
+              днэ
             </label>
           </div>
 

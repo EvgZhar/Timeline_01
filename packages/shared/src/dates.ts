@@ -1,8 +1,8 @@
 /** Display format: ДД.ММ.ГГГГ */
 const DISPLAY_RE = /^(\d{2})\.(\d{2})\.(\d{1,4})$/;
 
-/** BCE display format: ДД.ММ.ГГГГ до н.э. */
-const BCE_DISPLAY_RE = /^(\d{2})\.(\d{2})\.(\d{1,4}) до н\.э\.$/;
+/** BCE display format: ДД.ММ.ГГГГ днэ (backward compat: до н.э.) */
+const BCE_DISPLAY_RE = /^(\d{2})\.(\d{2})\.(\d{1,4}) (?:днэ|до н\.э\.)$/;
 
 /** Storage format: YYYY-MM-DD (year may be negative) */
 const STORAGE_RE = /^(-?\d+)-(\d{2})-(\d{2})$/;
@@ -20,7 +20,7 @@ export function formatDisplay(iso: string): string {
   const [, y, mo, d] = m;
   const year = Number(y);
   if (year < 0) {
-    return `${d}.${mo}.${String(-year)} до н.э.`;
+    return `${d}.${mo}.${String(-year)} днэ`;
   }
   return `${d}.${mo}.${String(year)}`;
 }
@@ -41,7 +41,7 @@ export function parseDisplay(input: string): string {
   }
 
   m = DISPLAY_RE.exec(trimmed);
-  if (!m) throw new Error("Дата должна быть в формате ДД.ММ.ГГГГ или ДД.ММ.ГГГГ до н.э.");
+  if (!m) throw new Error("Дата должна быть в формате ДД.ММ.ГГГГ или ДД.ММ.ГГГГ днэ");
   const [, d, mo, y] = m;
   const day = Number(d);
   const month = Number(mo);

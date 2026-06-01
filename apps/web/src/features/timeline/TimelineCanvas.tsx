@@ -470,7 +470,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           if (isEndDec31 || isEndJan1) {
             const sya = startDate.year;
             const eya = endDate.year;
-            const yr = (y: number) => `${y} г`;
+            const yr = (y: number) => y < 0 ? `${-y} г днэ` : `${y} г`;
             const startIsJan1 = startDate.month === 1 && startDate.day === 1;
             const endIsJan1 = endDate.month === 1 && endDate.day === 1;
             const startCentury = startIsJan1 ? formatCenturyYear(startDate.year) : null;
