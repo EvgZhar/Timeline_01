@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { TopBar } from "./components/TopBar";
 import { EventSheet } from "./features/events/EventSheet";
+import { EventGrid, EventDetailPanel, AttachmentsPanel } from "./features/eventGrid";
 import { SettingsSheet } from "./features/settings/SettingsSheet";
 import { ProfileSheet } from "./features/profile/ProfileSheet";
 import { TimelinesSheet } from "./features/timelines/TimelinesSheet";
@@ -30,9 +31,78 @@ export function TimelineApp() {
   const [textSearchMode, setTextSearchMode] = useState<"name" | "nameAndNotes">("name");
   const [viewRange, setViewRange] = useState<ViewRange | null>(null);
   const [showTagsOnTimeline, setShowTagsOnTimeline] = useState(false);
+  const [viewMode, setViewMode] = useState<"timeline" | "grid">("timeline");
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [gridWidth, setGridWidth] = useState(30);
+  const [docColWidth, setDocColWidth] = useState(288);
 
   const initializedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+
+  // Second divider refs
+  const isDragging2Ref = useRef(false);
+  const startX2Ref = useRef(0);
+  const startWidth2Ref = useRef(0);
+
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  const handleDocDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging2Ref.current = true;
+    startX2Ref.current = e.clientX;
+    startWidth2Ref.current = docColWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [docColWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const pct = ((e.clientX - rect.left) / rect.width) * 100;
+      setGridWidth(Math.min(Math.max(pct, 15), 60));
+    };
+    const handleMouseUp = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging2Ref.current) return;
+      const dx = e.clientX - startX2Ref.current;
+      const newWidth = startWidth2Ref.current - dx;
+      setDocColWidth(Math.min(Math.max(newWidth, 200), 500));
+    };
+    const handleMouseUp = () => {
+      if (!isDragging2Ref.current) return;
+      isDragging2Ref.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -92,6 +162,15 @@ export function TimelineApp() {
 
     const rawShowTags = settings.settings["ui.showTagsOnTimeline"];
     if (rawShowTags === "true") setShowTagsOnTimeline(true);
+
+    const rawViewMode = settings.settings["ui.viewMode"];
+    if (rawViewMode === "grid") setViewMode("grid");
+
+    const rawGridWidth = settings.settings["ui.gridWidth"];
+    if (typeof rawGridWidth === "string") {
+      const w = Number(rawGridWidth);
+      if (w >= 15 && w <= 60) setGridWidth(w);
+    }
   }, [settings]);
 
   // Save tag filters on change (after initial load)
@@ -125,6 +204,18 @@ export function TimelineApp() {
     api.settings.put({ "ui.lastEditedEventId": val });
   }, [eventSheet]);
 
+  // Save view mode
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    api.settings.put({ "ui.viewMode": viewMode });
+  }, [viewMode]);
+
+  // Save grid width
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    api.settings.put({ "ui.gridWidth": String(gridWidth) });
+  }, [gridWidth]);
+
   // Save view range on change (debounced)
   const handleRangeChange = useCallback((range: ViewRange) => {
     setViewRange(range);
@@ -156,11 +247,15 @@ export function TimelineApp() {
     setTextSearchQuery("");
     setTextSearchMode("name");
     setShowTagsOnTimeline(false);
+    setViewMode("timeline");
+    setGridWidth(30);
     api.settings.put({
       "ui.viewRange": null,
       "ui.tagFilters": null,
       "ui.textSearch": null,
       "ui.showTagsOnTimeline": null,
+      "ui.viewMode": null,
+      "ui.gridWidth": null,
     }).then(() => qc.invalidateQueries({ queryKey: ["settings"] }));
   }, [qc]);
 
@@ -177,6 +272,8 @@ export function TimelineApp() {
         onSearch={() => setSearchOpen(true)}
         onProfile={() => setProfileOpen(true)}
         filterCount={tagFilterIds.length + (textSearchQuery ? 1 : 0)}
+        viewMode={viewMode}
+        onViewModeChange={(mode) => { setViewMode(mode); if (mode !== "grid") setSelectedEventId(null); }}
       />
       <FilterBar
         tagFilterIds={tagFilterIds}
@@ -192,20 +289,61 @@ export function TimelineApp() {
         }}
         onSearch={() => setSearchOpen(true)}
       />
-      <main className="flex-1 overflow-hidden border border-slate-200 bg-white pb-[10px]">
-        <TimelineCanvas
-          tagFilterIds={tagFilterIds}
-          tagFilterMode={tagFilterMode}
-          textSearchQuery={textSearchQuery}
-          textSearchMode={textSearchMode}
-          onEventClick={(id) => setEventSheet({ mode: "edit", id })}
-          onEmptyClick={(date, timelineId) =>
-            setEventSheet({ mode: "create", initialDate: date, initialTimelineId: timelineId })
-          }
-          initialRange={viewRange}
-          onRangeChange={handleRangeChange}
-        />
-      </main>
+      {viewMode === "timeline" ? (
+        <main className="flex-1 overflow-hidden border border-slate-200 bg-white pb-[10px]">
+          <TimelineCanvas
+            tagFilterIds={tagFilterIds}
+            tagFilterMode={tagFilterMode}
+            textSearchQuery={textSearchQuery}
+            textSearchMode={textSearchMode}
+            onEventClick={(id) => setEventSheet({ mode: "edit", id })}
+            onEmptyClick={(date, timelineId) =>
+              setEventSheet({ mode: "create", initialDate: date, initialTimelineId: timelineId })
+            }
+            initialRange={viewRange}
+            onRangeChange={handleRangeChange}
+          />
+        </main>
+      ) : (
+        <div ref={containerRef} className="flex flex-1 overflow-hidden border border-slate-200 bg-white">
+          <div style={{ width: `${gridWidth}%` }} className="shrink-0 overflow-hidden border-r border-slate-200">
+            <EventGrid
+              tagFilterIds={tagFilterIds}
+              tagFilterMode={tagFilterMode}
+              textSearchQuery={textSearchQuery}
+              textSearchMode={textSearchMode}
+              selectedEventId={selectedEventId}
+              onSelect={setSelectedEventId}
+              onCreateEvent={() => setEventSheet({ mode: "create" })}
+            />
+          </div>
+          <div
+            className="w-1.5 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-blue-400 active:bg-blue-500"
+            onMouseDown={handleDividerMouseDown}
+          />
+          <div className="flex min-w-0 flex-1 overflow-hidden">
+            {selectedEventId ? (
+              <EventDetailPanel
+                key={selectedEventId}
+                eventId={selectedEventId}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
+                Выберите событие из таблицы
+              </div>
+            )}
+          </div>
+          <div
+            className="w-1.5 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-blue-400 active:bg-blue-500"
+            onMouseDown={handleDocDividerMouseDown}
+          />
+          <div style={{ width: docColWidth }} className="shrink-0 overflow-hidden border-l border-slate-200">
+            {selectedEventId ? (
+              <AttachmentsPanel key={selectedEventId} eventId={selectedEventId} />
+            ) : null}
+          </div>
+        </div>
+      )}
 
       <TimelinesSheet open={timelinesOpen} onOpenChange={setTimelinesOpen} />
       <SettingsSheet

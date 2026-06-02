@@ -1,7 +1,8 @@
-import { CalendarPlus, Layers, Search, Settings } from "lucide-react";
+import { CalendarPlus, Layers, LayoutList, Rows3, Search, Settings } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "@/api/client";
 import { TooltipButton } from "@/components/TooltipButton";
+import { cn } from "@/lib/utils";
 
 interface TopBarProps {
   onTimelines: () => void;
@@ -10,9 +11,11 @@ interface TopBarProps {
   onSearch: () => void;
   onProfile: () => void;
   filterCount?: number;
+  viewMode: "timeline" | "grid";
+  onViewModeChange: (mode: "timeline" | "grid") => void;
 }
 
-export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, filterCount = 0 }: TopBarProps) {
+export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, filterCount = 0, viewMode, onViewModeChange }: TopBarProps) {
   const { user, settings, currentDataAreaId, setCurrentDataAreaId } = useAuth();
 
   const handleAreaChange = async (areaId: number) => {
@@ -43,6 +46,25 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfil
           ))}
         </select>
       )}
+
+      <div className="flex overflow-hidden rounded-md border border-slate-300 bg-white">
+        <button
+          type="button"
+          onClick={() => onViewModeChange("timeline")}
+          className={cn("p-2", viewMode === "timeline" ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100")}
+          title="Таймлайн"
+        >
+          <Rows3 size={20} />
+        </button>
+        <button
+          type="button"
+          onClick={() => onViewModeChange("grid")}
+          className={cn("p-2", viewMode === "grid" ? "bg-blue-100 text-blue-700" : "text-slate-500 hover:bg-slate-100")}
+          title="Таблица"
+        >
+          <LayoutList size={20} />
+        </button>
+      </div>
 
       <button
         type="button"
