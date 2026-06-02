@@ -357,7 +357,18 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                   <g key={ev.id}>
                     {isPoint ? (
                       <>
-                        <circle cx={x1} cy={eventY} r={isHover ? 7 : (isThick ? 6 : 5)} fill={color} />
+                        {isHover && (
+                          <circle
+                            cx={x1}
+                            cy={eventY}
+                            r={(isHover ? 7 : (isThick ? 6 : 5)) + 4}
+                            fill="none"
+                            stroke="#9ca3af"
+                            strokeWidth={1.5}
+                            strokeDasharray="6 4"
+                          />
+                        )}
+                        <circle cx={x1} cy={eventY} r={isHover ? 7 : (isThick ? 6 : 5)} fill={isHover ? "#f97316" : color} />
                         <circle
                           cx={x1}
                           cy={eventY}
@@ -384,12 +395,24 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                       </>
                     ) : (
                       <>
+                        {isHover && (
+                          <rect
+                            x={Math.min(x1, x2) - 4}
+                            y={(isThick ? eventY - 5 : eventY - 4) - 4}
+                            width={Math.max(Math.abs(x2 - x1), 4) + 8}
+                            height={(isThick ? 10 : 8) + 8}
+                            fill="none"
+                            stroke="#9ca3af"
+                            strokeWidth={1.5}
+                            strokeDasharray="6 4"
+                          />
+                        )}
                         <rect
                           x={Math.min(x1, x2)}
                           y={isThick ? eventY - 5 : eventY - 4}
                           width={Math.max(Math.abs(x2 - x1), 4)}
                           height={isThick ? 10 : 8}
-                          fill={`url(#rangeGrad-${trackIdx})`}
+                          fill={isHover ? "#f97316" : `url(#rangeGrad-${trackIdx})`}
                           opacity={isHover ? 1 : 0.85}
                         />
                         <rect
