@@ -1,4 +1,4 @@
-import { CalendarPlus, Layers, LayoutList, Rows3, Search, Settings } from "lucide-react";
+import { CalendarPlus, FileDown, Layers, LayoutList, Rows3, Search, Settings } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "@/api/client";
 import { TooltipButton } from "@/components/TooltipButton";
@@ -10,12 +10,13 @@ interface TopBarProps {
   onSettings: () => void;
   onSearch: () => void;
   onProfile: () => void;
+  onExport: () => void;
   filterCount?: number;
   viewMode: "timeline" | "grid";
   onViewModeChange: (mode: "timeline" | "grid") => void;
 }
 
-export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, filterCount = 0, viewMode, onViewModeChange }: TopBarProps) {
+export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, onExport, filterCount = 0, viewMode, onViewModeChange }: TopBarProps) {
   const { user, settings, currentDataAreaId, setCurrentDataAreaId } = useAuth();
 
   const handleAreaChange = async (areaId: number) => {
@@ -92,6 +93,13 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfil
         className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700"
       >
         <CalendarPlus size={20} />
+      </TooltipButton>
+      <TooltipButton
+        label="Экспорт в Excel"
+        onClick={onExport}
+        className="rounded-md border border-slate-300 bg-white p-2 text-green-700 hover:bg-green-50"
+      >
+        <FileDown size={20} />
       </TooltipButton>
       <TooltipButton
         label="Настройки"

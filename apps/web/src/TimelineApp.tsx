@@ -271,6 +271,12 @@ export function TimelineApp() {
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
         onProfile={() => setProfileOpen(true)}
+        onExport={() => api.importExport.exportXlsx({
+          tagFilterIds: tagFilterIds.length > 0 ? tagFilterIds : undefined,
+          tagFilterMode: tagFilterIds.length > 0 ? tagFilterMode : undefined,
+          textSearchQuery: textSearchQuery || undefined,
+          textSearchMode: textSearchQuery ? textSearchMode : undefined,
+        })}
         filterCount={tagFilterIds.length + (textSearchQuery ? 1 : 0)}
         viewMode={viewMode}
         onViewModeChange={(mode) => { setViewMode(mode); if (mode !== "grid") setSelectedEventId(null); }}
@@ -352,6 +358,8 @@ export function TimelineApp() {
         savedViewRange={viewRange}
         savedTagFilterIds={tagFilterIds}
         savedTagFilterMode={tagFilterMode}
+        textSearchQuery={textSearchQuery}
+        textSearchMode={textSearchMode}
         showTagsOnTimeline={showTagsOnTimeline}
         onShowTagsOnTimelineChange={setShowTagsOnTimeline}
         onClearSettings={handleClearSettings}

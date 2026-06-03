@@ -5,6 +5,7 @@ import type {
   DataAreaDto,
   DocumentDto,
   EventDto,
+  ImportResult,
   LoginRequest,
   RegisterRequest,
   SettingsDto,
@@ -179,5 +180,47 @@ export const api = {
         method: "PUT",
         body: JSON.stringify({ settings }),
       }),
+  },
+  importExport: {
+    exportXlsx: (filters?: {
+      tagFilterIds?: number[];
+      tagFilterMode?: "and" | "or";
+      textSearchQuery?: string;
+      textSearchMode?: "name" | "nameAndNotes";
+    }) => {
+      const qp = new URLSearchParams();
+      if (filters?.tagFilterIds?.length) qp.set("tagFilterIds", filters.tagFilterIds.join(","));
+      if (filters?.tagFilterMode) qp.set("tagFilterMode", filters.tagFilterMode);
+      if (filters?.textSearchQuery) qp.set("textSearchQuery", filters.textSearchQuery);
+      if (filters?.textSearchMode) qp.set("textSearchMode", filters.textSearchMode);
+      const qs = qp.toString();
+      const url = qs ? `/api/import-export/export?${qs}` : "/api/import-export/export";
+      const params: RequestInit & { headers: Record<string, string> } = {
+        headers: {},
+        credentials: "include",
+      };
+      return fetch(url, params).then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error((body as { error?: string }).error ?? res.statusText);
+        }
+        const blob = await res.blob();
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = dlUrl;
+        a.download = `timeline-export-${Date.now()}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(dlUrl);
+      });
+    },
+    importXlsx: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return request<ImportResult>("/api/import-export/import", {
+        method: "POST",
+        body: formData,
+        headers: {},
+      });
+    },
   },
 };
