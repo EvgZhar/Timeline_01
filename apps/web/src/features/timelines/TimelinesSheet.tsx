@@ -24,6 +24,7 @@ export function TimelinesSheet({ open, onOpenChange }: TimelinesSheetProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editIconUrl, setEditIconUrl] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["timelines"] });
@@ -90,7 +91,9 @@ export function TimelinesSheet({ open, onOpenChange }: TimelinesSheetProps) {
           return (
             <li
               key={t.id}
-              className="group flex items-center gap-2 rounded border border-slate-200 p-2 hover:bg-slate-50"
+              className="flex items-center gap-2 rounded border border-slate-200 p-2 hover:bg-slate-50"
+              onMouseEnter={() => setHoveredId(t.id)}
+              onMouseLeave={() => setHoveredId(null)}
             >
               <input
                 type="checkbox"
@@ -183,7 +186,7 @@ export function TimelinesSheet({ open, onOpenChange }: TimelinesSheetProps) {
 
                   <span className="flex-1 text-sm font-medium">{t.name}</span>
 
-                  <div className="hidden items-center gap-1 group-hover:flex">
+                  <div className={hoveredId === t.id ? "flex items-center gap-1" : "hidden items-center gap-1"}>
                     <TooltipButton
                       label="Редактировать"
                       onClick={() => startEdit(t)}
