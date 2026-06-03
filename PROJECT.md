@@ -48,7 +48,8 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 │           ├── auth/          # Login, Register, VerifyEmail, ForgotPassword, ResetPassword, OAuthCallback pages
 │           ├── admin/         # Admin panel
 │           ├── components/    # Reusable UI components
-│           ├── features/      # Feature modules (events, timelines, tags, settings)
+│           ├── features/      # Feature modules (events, timelines, tags, settings, eventGrid)
+│           │   └── eventGrid/ # Table view (EventGrid + EventDetailPanel + AttachmentsPanel)
 │           └── api/           # API client
 ├── packages/
 │   └── shared/       # Shared types, Zod schemas, date utils
@@ -102,6 +103,62 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 | `/data-areas/:id/users` | GET | Users + rights for a data area |
 | `/user-data-area` | POST | Set user rights on data area |
 | `/user-data-area` | DELETE | Remove user from data area |
+
+## Resource API routes
+
+### Events (`/api/events`)
+
+Все end-points требуют JWT-аутентификации. Проверка прав через `permissionService.ts`.
+
+| Endpoint | Method | Permission | Description |
+|----------|--------|------------|-------------|
+| `/` | GET | `canRead` | Список событий. `?timelineId=N` — фильтр по шкале |
+| `/` | POST | `canCreate` | Создать событие (текущая DataArea) |
+| `/:id` | GET | `canRead` | Получить событие по ID |
+| `/:id` | PUT | `canUpdate` | Обновить событие (поля + связи с таймлайнами/тэгами) |
+| `/:id` | DELETE | `canDelete` | Удалить событие |
+
+Фильтрация, сортировка и поиск выполняются **на клиенте** (пагинация отсутствует).
+
+### Timelines (`/api/timelines`)
+
+| Endpoint | Method | Permission | Description |
+|----------|--------|------------|-------------|
+| `/` | GET | `canRead` | Список шкал времени |
+| `/` | POST | `canCreate` | Создать шкалу (текущая DataArea) |
+| `/:id` | PUT | `canUpdate` | Обновить шкалу |
+| `/:id` | DELETE | `canDelete` | Удалить шкалу |
+| `/:id/visibility` | PATCH | `canRead` | Переключить видимость шкалы |
+| `/reorder` | POST | `canRead` | Переупорядочить шкалы |
+
+### Tags (`/api/tags`)
+
+| Endpoint | Method | Permission | Description |
+|----------|--------|------------|-------------|
+| `/recent` | GET | — | Последние использованные тэги |
+| `/` | GET | `canRead` | Список/поиск тэгов (`?q=`) |
+| `/` | POST | `canCreate` | Создать тэг (текущая DataArea) |
+| `/:id` | PUT | `canUpdate` | Обновить тэг (name, color, previewUrl) |
+| `/:id` | DELETE | `canDelete` | Удалить тэг |
+
+### Documents (`/api/documents`)
+
+| Endpoint | Method | Permission | Description |
+|----------|--------|------------|-------------|
+| `/` | GET | `canRead` | Список документов (`?eventId=N` — обязателен) |
+| `/` | POST | `canCreate` | Загрузить файл или добавить URL-ссылку |
+| `/:id/preview` | GET | — | Редирект на URL превью |
+| `/:id/primary` | PATCH | `canUpdate` | Назначить основным документом |
+| `/:id` | DELETE | `canDelete` | Удалить документ |
+
+Ограничение: не более 10 вложений на событие.
+
+### Settings (`/api/settings`)
+
+| Endpoint | Method | Permission | Description |
+|----------|--------|------------|-------------|
+| `/` | GET | Yes | Получить UI-настройки (viewMode, ширина грида, фильтры, lastEditedEventId) |
+| `/` | PUT | Yes | Сохранить UI-настройки |
 
 ## Agent instructions
 
