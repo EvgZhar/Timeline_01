@@ -182,7 +182,7 @@ export const api = {
       }),
   },
   importExport: {
-    exportXlsx: (filters?: {
+    exportXlsx: async (filters?: {
       tagFilterIds?: number[];
       tagFilterMode?: "and" | "or";
       textSearchQuery?: string;
@@ -195,23 +195,28 @@ export const api = {
       if (filters?.textSearchMode) qp.set("textSearchMode", filters.textSearchMode);
       const qs = qp.toString();
       const url = qs ? `/api/import-export/export?${qs}` : "/api/import-export/export";
-      const params: RequestInit & { headers: Record<string, string> } = {
-        headers: {},
-        credentials: "include",
-      };
-      return fetch(url, params).then(async (res) => {
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error((body as { error?: string }).error ?? res.statusText);
+
+      async function doFetch(): Promise<Response> {
+        const res = await fetch(url, { credentials: "include" });
+        if (res.status === 401) {
+          const refreshed = await refreshAccessToken();
+          if (refreshed) return fetch(url, { credentials: "include" });
         }
-        const blob = await res.blob();
-        const dlUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = dlUrl;
-        a.download = `timeline-export-${Date.now()}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(dlUrl);
-      });
+        return res;
+      }
+
+      const res = await doFetch();
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error ?? res.statusText);
+      }
+      const blob = await res.blob();
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      a.download = `timeline-export-${Date.now()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(dlUrl);
     },
     importXlsx: (file: File) => {
       const formData = new FormData();

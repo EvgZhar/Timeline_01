@@ -3,7 +3,7 @@ import { formatDisplay } from "@timeline/shared";
 import { useRef, useState } from "react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
-import { Check, Download, Eraser, ImageOff, Link2, Pencil, Plus, Upload, X } from "lucide-react";
+import { Check, Download, Eraser, ImageOff, Link2, Loader2, Pencil, Plus, Upload, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import type { ViewRange } from "@/features/timeline/timeScale";
 import type { ImportResult, TagDto } from "@timeline/shared";
@@ -159,6 +159,7 @@ export function SettingsSheet({
 }: SettingsSheetProps) {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabId>("interface");
+  const [exporting, setExporting] = useState(false);
 
   const { data: allTimelines = [] } = useQuery({
     queryKey: ["timelines"],
@@ -286,17 +287,27 @@ export function SettingsSheet({
               На листе «События» настроены выпадающие списки для выбора таймлайнов и тегов.
             </p>
             <TooltipButton
-              label="Скачать .xlsx"
-              onClick={() => api.importExport.exportXlsx({
-                tagFilterIds: savedTagFilterIds?.length ? savedTagFilterIds : undefined,
-                tagFilterMode: savedTagFilterIds?.length ? savedTagFilterMode : undefined,
-                textSearchQuery: textSearchQuery || undefined,
-                textSearchMode: textSearchQuery ? textSearchMode : undefined,
-              })}
-              className="rounded bg-blue-600 p-2 text-white hover:bg-blue-700"
+              label={exporting ? "Экспорт..." : "Скачать .xlsx"}
+              disabled={exporting}
+              onClick={async () => {
+                setExporting(true);
+                try {
+                  await api.importExport.exportXlsx({
+                    tagFilterIds: savedTagFilterIds?.length ? savedTagFilterIds : undefined,
+                    tagFilterMode: savedTagFilterIds?.length ? savedTagFilterMode : undefined,
+                    textSearchQuery: textSearchQuery || undefined,
+                    textSearchMode: textSearchQuery ? textSearchMode : undefined,
+                  });
+                } catch (err) {
+                  alert("Ошибка экспорта: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              className="rounded bg-blue-600 p-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Download size={16} />
-              <span>Скачать .xlsx</span>
+              {exporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+              <span>{exporting ? "Экспорт..." : "Скачать .xlsx"}</span>
             </TooltipButton>
           </div>
 
