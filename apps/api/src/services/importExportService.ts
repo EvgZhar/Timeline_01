@@ -5,6 +5,7 @@ import { eventTable, eventTimelineLink, tagEventLink, tagTable, timelineTable } 
 import { eventCreateSchema, toStorage } from "@timeline/shared";
 import type { ImportResult } from "@timeline/shared";
 import * as eventsService from "./eventsService.js";
+import { checkPermission } from "./permissionService.js";
 
 const require = createRequire(import.meta.url);
 const ExcelJS = require("exceljs");
@@ -196,7 +197,7 @@ export async function generateExportXlsx(
     const start = fromDbDate(ev.startDate);
     const end = fromDbDate(ev.endDate ?? ev.startDate);
     evSheet.addRow({
-      id: ev.id,
+      id: `${ev.dataAreaId}_${ev.id}`,
       name: ev.name,
       startDate: start,
       endDate: end,
@@ -224,9 +225,12 @@ export async function generateExportXlsx(
   return buf as unknown as Buffer;
 }
 
+const COMPOSITE_KEY_RE = /^(\d+)_(\d+)$/;
+
 export async function processImportXlsx(
   buffer: Buffer,
   dataAreaId: number,
+  userId: number,
 ): Promise<ImportResult> {
   const result: ImportResult = { created: 0, updated: 0, skipped: 0, errors: [] };
 
@@ -356,24 +360,49 @@ export async function processImportXlsx(
 
       eventCreateSchema.parse(eventData);
 
-      const eventId = idCell ? Number(idCell) : undefined;
+      const idCellStr = String(idCell ?? "").trim();
 
-      if (eventId && eventId > 0) {
-        const [existing] = await db
-          .select({ id: eventTable.id, dataAreaId: eventTable.dataAreaId })
-          .from(eventTable)
-          .where(eq(eventTable.id, eventId))
-          .limit(1);
-        if (existing && existing.dataAreaId === dataAreaId) {
-          await eventsService.updateEvent(eventId, eventData);
-          result.updated++;
-        } else {
-          await eventsService.createEvent(eventData, dataAreaId);
-          result.created++;
-        }
-      } else {
+      if (!idCellStr) {
+        // Пустая ячейка → новое событие в текущей DataArea
         await eventsService.createEvent(eventData, dataAreaId);
         result.created++;
+        continue;
+      }
+
+      const match = idCellStr.match(COMPOSITE_KEY_RE);
+      if (!match) {
+        // Не парсится под формат DataAreaId_EventId
+        result.errors.push({ row: r, message: `Неверный формат ключа: "${idCellStr}"` });
+        result.skipped++;
+        continue;
+      }
+
+      const parsedDataAreaId = Number(match[1]);
+      const parsedEventId = Number(match[2]);
+
+      if (!(await checkPermission(userId, parsedDataAreaId, "canUpdate"))) {
+        result.errors.push({ row: r, message: `Нет прав на обновление в области ${parsedDataAreaId} (ключ: ${idCellStr})` });
+        result.skipped++;
+        continue;
+      }
+
+      const [existing] = await db
+        .select({ id: eventTable.id, dataAreaId: eventTable.dataAreaId })
+        .from(eventTable)
+        .where(eq(eventTable.id, parsedEventId))
+        .limit(1);
+
+      if (existing && existing.dataAreaId === parsedDataAreaId) {
+        await eventsService.updateEventMeta(parsedEventId, {
+          name: eventData.name,
+          startDate: eventData.startDate,
+          endDate: eventData.endDate,
+          notes: eventData.notes ?? null,
+        });
+        result.updated++;
+      } else {
+        result.errors.push({ row: r, message: `Событие с ключом ${idCellStr} не найдено в области ${parsedDataAreaId}` });
+        result.skipped++;
       }
     } catch (e) {
       result.errors.push({ row: r, message: String(e) });

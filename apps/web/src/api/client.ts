@@ -30,7 +30,7 @@ async function refreshAccessToken(): Promise<boolean> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...init?.headers as Record<string, string>,
   };
 

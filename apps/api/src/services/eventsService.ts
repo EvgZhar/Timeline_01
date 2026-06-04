@@ -239,6 +239,23 @@ export async function updateEvent(id: number, data: EventCreate): Promise<EventD
   return getEvent(id);
 }
 
+/** Обновляет только name/startDate/endDate/notes — без таймлайнов и тегов */
+export async function updateEventMeta(
+  id: number,
+  data: { name: string; startDate: string; endDate?: string; notes: string | null },
+): Promise<void> {
+  const endDate = data.endDate ?? data.startDate;
+  await db
+    .update(eventTable)
+    .set({
+      name: data.name,
+      startDate: toDbDate(data.startDate),
+      endDate: toDbDate(endDate),
+      notes: data.notes ?? null,
+    })
+    .where(eq(eventTable.id, id));
+}
+
 async function syncEventLinks(eventId: number, data: EventCreate): Promise<void> {
   if (data.timelineIds.length > 0) {
     const timelines = await db

@@ -67,7 +67,7 @@ importExportRouter.post("/import", authenticate, upload.single("file"), async (r
       res.status(403).json({ error: "Нет права на создание в текущей области" });
       return;
     }
-    const result = await svc.processImportXlsx(req.file.buffer, dataAreaId);
+    const result = await svc.processImportXlsx(req.file.buffer, dataAreaId, req.user!.userId);
     res.json(result);
   } catch (e) {
     next(e);
