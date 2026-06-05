@@ -5,6 +5,7 @@ import { api } from "@/api/client";
 import { assignBarThickness, assignEventTracks } from "./eventLayout";
 import { labelY, layoutLabels } from "./labelLayout";
 import { ZoomControls } from "./ZoomControls";
+import { MarkdownView } from "@/components/MarkdownView";
 import {
   computeInitialRange,
   generateTicks,
@@ -514,7 +515,6 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           }
 
           const notes = ev.notes ?? "";
-          const truncated = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
           const hasTags = ev.tags.length > 0;
 
           const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
@@ -523,14 +523,35 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
           const ly = yMid - 20;
 
-          const tooltipW = 230;
-          const tooltipH = 115 + (hasTags ? 28 : 0);
-          const tooltipX = Math.max(padding.left + 4, cx - tooltipW / 2);
-          const tooltipY = Math.max(padding.top + 4, ly - tooltipH - 14);
+          const tooltipW = 276;
+          const tooltipH = 166 + (hasTags ? 41 : 0);
+          const workspaceMid = padding.left + innerW / 2;
+          const tooltipX = cx < workspaceMid
+            ? Math.max(padding.left + 4, cx + 100)
+            : Math.min(cx - tooltipW - 100, padding.left + innerW - tooltipW - 4);
+          const tooltipY = Math.min(
+            Math.max(padding.top + 4, ly - tooltipH - 14),
+            padding.top + laneIdx * (laneH + GAP) + laneH - tooltipH - 4,
+          );
+
+          const lineX = tooltipX + tooltipW / 2;
+          const lineY1 = tooltipY + tooltipH;
+          const lineY2 = ly;
 
           return (
+            <>
+              {/* Connecting line */}
+              <line
+                x1={lineX} y1={lineY1}
+                x2={lineX} y2={lineY2}
+                stroke="#94a3b8"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+                style={{ animation: "tooltip-in 0.2s ease-out forwards" }}
+              />
             <foreignObject x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH}>
               <div
+                className="tooltip-enter"
                 onMouseEnter={() => {
                   if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
@@ -597,9 +618,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                       {dateStr}
                     </div>
                     {notes && (
-                      <div style={{ color: "#64748b", wordBreak: "break-word", fontSize: "10px" }}>
-                        {truncated}
-                      </div>
+                      <MarkdownView content={notes} compact />
                     )}
                   </div>
                 </div>
@@ -656,6 +675,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 )}
               </div>
             </foreignObject>
+          </>
           );
         })()}
       </svg>

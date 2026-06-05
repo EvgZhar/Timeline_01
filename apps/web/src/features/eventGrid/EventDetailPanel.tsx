@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, Download } from "lucide-react";
 import { formatDisplay, parseDisplay } from "@timeline/shared";
 import { api } from "@/api/client";
 import { SidePanel } from "@/components/SidePanel";
 import { DatePickerField } from "@/components/DatePickerField";
 import { TooltipButton } from "@/components/TooltipButton";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { useAuth } from "@/auth/AuthContext";
 import type { TagDto } from "@timeline/shared";
 
@@ -43,6 +44,16 @@ function TagChip({ tag, onRemove }: { tag: TagDto; onRemove: () => void }) {
       <button type="button" className="leading-none hover:opacity-70" onClick={onRemove}>✕</button>
     </span>
   );
+}
+
+function downloadMd(notes: string, name: string) {
+  const blob = new Blob([notes], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_")}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function EventDetailPanel({ eventId }: EventDetailPanelProps) {
@@ -235,15 +246,26 @@ export function EventDetailPanel({ eventId }: EventDetailPanelProps) {
             </div>
           </div>
 
-          <label className="block text-sm">
-            Описание
-            <textarea
-              className="mt-1 w-full rounded border px-2 py-1"
-              rows={5}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span>Описание</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); downloadMd(notes, name); }}
+                disabled={!notes.trim()}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                title="Экспорт .md"
+              >
+                <Download size={12} />
+                .md
+              </button>
+            </div>
+            <MarkdownEditor
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={setNotes}
+              className="mt-1"
             />
-          </label>
+          </div>
 
           <fieldset>
             <legend className="mb-1 text-sm font-medium">Шкалы</legend>

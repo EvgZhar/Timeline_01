@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDisplay, parseDisplay } from "@timeline/shared";
 import { useEffect, useRef, useState } from "react";
-import { Check, ExternalLink, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, Download, ExternalLink, Plus, Save, Trash2, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
 import { DatePickerField } from "@/components/DatePickerField";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import type { DocumentDto } from "@timeline/shared";
 
 interface EventSheetProps {
@@ -64,9 +65,19 @@ function DocThumbnail({ doc }: { doc: DocumentDto | PendingDoc }) {
   );
 }
 
+function downloadMd(notes: string, name: string) {
+  const blob = new Blob([notes], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_")}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onClose }: EventSheetProps) {
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"main" | "attachments">("main");
+  const [activeTab, setActiveTab] = useState<"main" | "attachments" | "description">("main");
   const { data: event } = useQuery({
     queryKey: ["event", eventId],
     queryFn: () => api.events.get(eventId!),
@@ -370,6 +381,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
       side="right"
       onOpenChange={(o) => !o && handleClose()}
       title={mode === "create" ? "Новое событие" : "Редактирование"}
+      className="w-[684px]"
       footer={
         <div className="flex items-center gap-2">
           <TooltipButton
@@ -426,6 +438,16 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
           >
             Приложения{docs.length > 0 ? ` (${docs.length})` : ""}
           </button>
+          <button
+            className={`px-3 py-2 text-sm font-medium ${
+              activeTab === "description"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+            onClick={() => setActiveTab("description")}
+          >
+            Описание
+          </button>
         </div>
       )}
 
@@ -454,10 +476,27 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
               />
             </div>
           </div>
-          <label className="block text-sm">
-            Описание
-            <textarea className="mt-1 w-full rounded border px-2 py-1" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </label>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span>Описание</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); downloadMd(notes, name); }}
+                disabled={!notes.trim()}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                title="Экспорт .md"
+              >
+                <Download size={12} />
+                .md
+              </button>
+            </div>
+            <MarkdownEditor
+              value={notes}
+              onChange={setNotes}
+              className="mt-1"
+              maxH="140px"
+            />
+          </div>
 
           <fieldset>
             <legend className="text-sm font-medium">Шкалы</legend>
@@ -579,6 +618,26 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
             </div>
           )}
         </div>
+      ) : mode === "edit" && activeTab === "description" ? (
+        /* === EDIT MODE - DESCRIPTION TAB === */
+        <div className="flex h-full flex-col">
+          <MarkdownEditor
+            value={notes}
+            onChange={setNotes}
+            className="flex-1 min-h-0"
+          />
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => downloadMd(notes, name)}
+              disabled={!notes.trim()}
+              className="flex items-center gap-1 rounded border px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+            >
+              <Download size={14} />
+              Экспорт .md
+            </button>
+          </div>
+        </div>
       ) : mode === "create" ? (
         /* === CREATE MODE (no tabs) === */
         <div className="space-y-3">
@@ -604,10 +663,27 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
               />
             </div>
           </div>
-          <label className="block text-sm">
-            Описание
-            <textarea className="mt-1 w-full rounded border px-2 py-1" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </label>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span>Описание</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); downloadMd(notes, name); }}
+                disabled={!notes.trim()}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                title="Экспорт .md"
+              >
+                <Download size={12} />
+                .md
+              </button>
+            </div>
+            <MarkdownEditor
+              value={notes}
+              onChange={setNotes}
+              className="mt-1"
+              maxH="100px"
+            />
+          </div>
 
           <fieldset>
             <legend className="text-sm font-medium">Шкалы</legend>
