@@ -6,7 +6,7 @@ export const pdfRouter = Router();
 
 pdfRouter.post("/export", authenticate, async (req, res, next) => {
   try {
-    const { events, timelines, visibleTimelineIds, timelineImage, documentImages } = req.body;
+    const { events, timelines, visibleTimelineIds, timelineSvg, documentImages } = req.body;
 
     if (!Array.isArray(events) || !Array.isArray(timelines) || !Array.isArray(visibleTimelineIds)) {
       res.status(400).json({ error: "Неверные данные: ожидаются events, timelines, visibleTimelineIds" });
@@ -17,7 +17,7 @@ pdfRouter.post("/export", authenticate, async (req, res, next) => {
       events,
       timelines,
       visibleTimelineIds,
-      typeof timelineImage === "string" ? timelineImage : undefined,
+      typeof timelineSvg === "string" ? timelineSvg : undefined,
       typeof documentImages === "object" && documentImages !== null ? documentImages : undefined,
     );
 

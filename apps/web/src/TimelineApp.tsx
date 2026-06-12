@@ -292,7 +292,7 @@ export function TimelineApp() {
     // Helper to fetch image → data URL
     const fetchAsDataUrl = async (url: string): Promise<string | null> => {
       try {
-        const r = await fetch(url, { credentials: "include" });
+        const r = await fetch(url, { credentials: "same-origin" });
         if (!r.ok) return null;
         const blob = await r.blob();
         return new Promise((resolve) => {
@@ -324,51 +324,25 @@ export function TimelineApp() {
       }
     }
 
-    // Timeline screenshot
-    let timelineImage: string | undefined;
+    // Timeline inline SVG
+    let timelineSvg: string | undefined;
     const container = document.querySelector<HTMLElement>('[data-pdf-export="timeline-canvas"]');
     const svgEl = container?.querySelector("svg");
     if (svgEl) {
-      const rect = svgEl.getBoundingClientRect();
       const clone = svgEl.cloneNode(true) as SVGSVGElement;
+      clone.querySelectorAll("foreignObject").forEach((fo) => fo.remove());
       // Inline external images in SVG (timeline icons)
-      const imageEls = Array.from(clone.querySelectorAll("image"));
-      for (const imgEl of imageEls) {
+      for (const imgEl of Array.from(clone.querySelectorAll("image"))) {
         const href = imgEl.getAttribute("href") || imgEl.getAttributeNS("http://www.w3.org/1999/xlink", "href");
         if (href && !href.startsWith("data:")) {
           const dataUrl = await fetchAsDataUrl(href);
           if (dataUrl) imgEl.setAttribute("href", dataUrl);
         }
       }
-      clone.querySelectorAll("foreignObject").forEach((fo) => fo.remove());
-      clone.setAttribute("width", String(rect.width));
-      clone.setAttribute("height", String(rect.height));
-      const svgStr = new XMLSerializer().serializeToString(clone);
-      const blob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      try {
-        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const i = new Image();
-          i.onload = () => resolve(i);
-          i.onerror = reject;
-          i.src = url;
-        });
-        const canvas = document.createElement("canvas");
-        const scale = 2;
-        canvas.width = rect.width * scale;
-        canvas.height = rect.height * scale;
-        const ctx = canvas.getContext("2d")!;
-        ctx.scale(scale, scale);
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, rect.width, rect.height);
-        ctx.drawImage(img, 0, 0);
-        timelineImage = canvas.toDataURL("image/png");
-      } finally {
-        URL.revokeObjectURL(url);
-      }
+      timelineSvg = new XMLSerializer().serializeToString(clone);
     }
 
-    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineImage, documentImages);
+    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineSvg, documentImages);
   }, [qc, viewRange, tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode]);
 
   // Clear all saved UI settings

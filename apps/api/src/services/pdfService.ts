@@ -50,17 +50,17 @@ function buildHtml(
   events: EventDto[],
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
-  timelineImage?: string,
+  timelineSvg?: string,
   documentImages?: Record<number, string>,
 ): string {
   const visibleTls = timelines.filter((t) => visibleTimelineIds.includes(t.id));
 
   let timelineHtml = "";
-  if (timelineImage) {
+  if (timelineSvg) {
     timelineHtml = `
   <div class="landscape">
-    <div class="timeline-image-container">
-      <img src="${escapeHtml(timelineImage)}" alt="Таймлайн" />
+    <div class="timeline-svg-container">
+      ${timelineSvg}
     </div>
   </div>`;
   }
@@ -110,15 +110,18 @@ function buildHtml(
 
       let docsHtml = "";
       for (const doc of ev.documents) {
-        if (doc.resourceType === "image" && documentImages?.[doc.documentId]) {
-          docsHtml += `<div class="event-doc-img"><img src="${documentImages[doc.documentId]}" alt="${escapeHtml(doc.description)}" /><div class="event-doc-label">${escapeHtml(doc.description)}</div></div>`;
-        } else {
-          const link = doc.originalLink ?? doc.previewUrl ?? "";
-          if (link) {
-            docsHtml += `<div class="event-doc"><a href="${escapeHtml(link)}">${escapeHtml(doc.description)}</a></div>`;
-          } else {
-            docsHtml += `<div class="event-doc">${escapeHtml(doc.description)}</div>`;
+        if (doc.resourceType === "image") {
+          const imgSrc = documentImages?.[doc.documentId] ?? doc.previewUrl ?? doc.originalLink;
+          if (imgSrc) {
+            docsHtml += `<div class="event-doc-img"><img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(doc.description)}" /><div class="event-doc-label">${escapeHtml(doc.description)}</div></div>`;
+            continue;
           }
+        }
+        const link = doc.originalLink ?? doc.previewUrl ?? "";
+        if (link) {
+          docsHtml += `<div class="event-doc"><a href="${escapeHtml(link)}">${escapeHtml(doc.description)}</a></div>`;
+        } else {
+          docsHtml += `<div class="event-doc">${escapeHtml(doc.description)}</div>`;
         }
       }
 
@@ -140,7 +143,7 @@ function buildHtml(
 <head>
 <meta charset="UTF-8">
 <style>
-  @page landscape { size: landscape; margin: 15mm; }
+  @page landscape { size: landscape; margin: 10mm; }
   @page portrait { size: portrait; margin: 20mm 15mm; }
   @page { size: portrait; margin: 20mm 15mm; }
   * { box-sizing: border-box; }
@@ -167,14 +170,13 @@ function buildHtml(
     margin-bottom: 40mm;
   }
   .page-break { page-break-before: always; }
-  .timeline-image-container {
+  .timeline-svg-container {
     width: 100%;
-    text-align: center;
     page-break-inside: avoid;
-    margin: 5mm 0;
+    margin: 3mm 0;
   }
-  .timeline-image-container img {
-    max-width: 100%;
+  .timeline-svg-container svg {
+    width: 100%;
     height: auto;
   }
   .timeline-section { margin-bottom: 10mm; }
@@ -274,10 +276,10 @@ export async function generatePdf(
   events: EventDto[],
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
-  timelineImage?: string,
+  timelineSvg?: string,
   documentImages?: Record<number, string>,
 ): Promise<Buffer> {
-  const html = buildHtml(events, timelines, visibleTimelineIds, timelineImage, documentImages);
+  const html = buildHtml(events, timelines, visibleTimelineIds, timelineSvg, documentImages);
 
   const browser = await puppeteer.launch({
     headless: true,
@@ -291,6 +293,7 @@ export async function generatePdf(
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
+    await new Promise((r) => setTimeout(r, 2000));
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
