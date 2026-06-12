@@ -481,7 +481,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const ev = events.find((e) => e.id === hovered);
           if (!ev) return null;
 
-          const previewDoc = ev.documents.find((d) => d.isPrimary) ?? ev.documents[0];
+          const previewDoc = ev.documents.find((d) => d.isPrimary && d.resourceType === "image");
           const imgUrl = previewDoc?.previewUrl;
 
           const sy = ev.startDate;
@@ -622,57 +622,63 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     )}
                   </div>
                 </div>
-                {hasTags && (
-                  <div style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "3px",
-                    flexShrink: 0,
-                  }}>
-                    {ev.tags.map((tag) => {
-                      const tagHex = tag.color.toString(16).padStart(6, "0");
-                      return (
-                        <span key={tag.id} style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "2px",
-                          borderRadius: "4px",
-                          border: "1px solid #e2e8f0",
-                          padding: tag.previewUrl ? "1px" : "1px 5px",
-                          fontSize: "9px",
-                          lineHeight: "16px",
-                          color: "#475569",
-                        }}>
-                          {tag.previewUrl ? (
-                            <img
-                              src={tag.previewUrl}
-                              alt={tag.name}
-                              title={tag.name}
-                              style={{
-                                width: "16px",
-                                height: "16px",
-                                objectFit: "cover",
-                                borderRadius: "3px",
-                                flexShrink: 0,
-                              }}
-                            />
-                          ) : (
-                            <>
-                              <span style={{
-                                display: "inline-block",
-                                width: "8px",
-                                height: "8px",
-                                borderRadius: "50%",
-                                backgroundColor: `#${tagHex}`,
-                              }} />
-                              <span style={{ marginLeft: "3px", fontSize: "9px" }}>{tag.name}</span>
-                            </>
-                          )}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
+                <div style={{
+                  flexShrink: 0,
+                  borderTop: hasTags ? "1px solid #e2e8f0" : "none",
+                  paddingTop: hasTags ? "4px" : 0,
+                  marginTop: "auto",
+                }}>
+                  {hasTags && (
+                    <div style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "3px",
+                    }}>
+                      {ev.tags.map((tag) => {
+                        const tagHex = tag.color.toString(16).padStart(6, "0");
+                        return (
+                          <span key={tag.id} style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "2px",
+                            borderRadius: "4px",
+                            border: "1px solid #e2e8f0",
+                            padding: tag.previewUrl ? "1px" : "1px 5px",
+                            fontSize: "9px",
+                            lineHeight: "16px",
+                            color: "#475569",
+                          }}>
+                            {tag.previewUrl ? (
+                              <img
+                                src={tag.previewUrl}
+                                alt={tag.name}
+                                title={tag.name}
+                                style={{
+                                  width: "16px",
+                                  height: "16px",
+                                  objectFit: "cover",
+                                  borderRadius: "3px",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <span style={{
+                                  display: "inline-block",
+                                  width: "8px",
+                                  height: "8px",
+                                  borderRadius: "50%",
+                                  backgroundColor: `#${tagHex}`,
+                                }} />
+                                <span style={{ marginLeft: "3px", fontSize: "9px" }}>{tag.name}</span>
+                              </>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </foreignObject>
           </>
