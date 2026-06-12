@@ -207,9 +207,9 @@ export const api = {
       events: unknown[],
       timelines: unknown[],
       visibleTimelineIds: number[],
-      timelineSvg?: string,
+      timelineImage?: string,
     ) => {
-      const body = JSON.stringify({ events, timelines, visibleTimelineIds, timelineSvg });
+      const body = JSON.stringify({ events, timelines, visibleTimelineIds, timelineImage });
       const opts = {
         method: "POST" as const,
         headers: { "Content-Type": "application/json" as const },

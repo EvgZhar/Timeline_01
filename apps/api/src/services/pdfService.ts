@@ -50,20 +50,17 @@ function buildHtml(
   events: EventDto[],
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
-  timelineSvg?: string,
+  timelineImage?: string,
 ): string {
   const visibleTls = timelines.filter((t) => visibleTimelineIds.includes(t.id));
 
-  let timelineImageHtml = "";
-  if (timelineSvg) {
-    const svgMatch = timelineSvg.match(/<svg[\s\S]*<\/svg>/i);
-    if (svgMatch) {
-      timelineImageHtml = `
+  let timelineHtml = "";
+  if (timelineImage) {
+    timelineHtml = `
     <div class="timeline-image-container">
-      ${svgMatch[0]}
+      <img src="${escapeHtml(timelineImage)}" alt="Таймлайн" />
     </div>
     <div class="page-break"></div>`;
-    }
   }
 
   let eventsHtml = "";
@@ -167,7 +164,7 @@ function buildHtml(
     page-break-inside: avoid;
     margin: 10mm 0;
   }
-  .timeline-image-container svg {
+  .timeline-image-container img {
     max-width: 100%;
     height: auto;
   }
@@ -229,9 +226,6 @@ function buildHtml(
     color: #2266aa;
     text-decoration: underline;
   }
-  .event-doc a:hover {
-    color: #1a4d7a;
-  }
   .footer {
     text-align: center;
     font-size: 9pt;
@@ -244,7 +238,7 @@ function buildHtml(
   <div class="title">Хронология событий</div>
   <div class="subtitle">Экспорт из pretty-timeline.ru</div>
   <div class="page-break"></div>
-  ${timelineImageHtml}
+  ${timelineHtml}
   ${eventsHtml}
   <div class="footer">Создано в pretty-timeline.ru</div>
 </body>
@@ -255,9 +249,9 @@ export async function generatePdf(
   events: EventDto[],
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
-  timelineSvg?: string,
+  timelineImage?: string,
 ): Promise<Buffer> {
-  const html = buildHtml(events, timelines, visibleTimelineIds, timelineSvg);
+  const html = buildHtml(events, timelines, visibleTimelineIds, timelineImage);
 
   const browser = await puppeteer.launch({
     headless: true,
