@@ -92,6 +92,16 @@ export interface DocumentDto {
   createdDateTime: string;
 }
 
+export type DependencyType = "part_of" | "influences";
+
+export interface EventDependencyDto {
+  eventId: number;
+  depEventId: number;
+  dependencyType: DependencyType;
+  createdDateTime: string;
+  depEventName?: string;
+}
+
 export interface EventDto {
   id: number;
   name: string;
@@ -102,6 +112,7 @@ export interface EventDto {
   timelines: { id: number; name: string }[];
   tags: TagDto[];
   documents: DocumentDto[];
+  dependencies: EventDependencyDto[];
   dataAreaId?: number | null;
 }
 

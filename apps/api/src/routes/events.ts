@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eventCreateSchema } from "@timeline/shared";
+import { dependencyCreateSchema, dependencyUpdateSchema, eventCreateSchema } from "@timeline/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { eventTable, eventTimelineLink, tagEventLink, tagTable, timelineTable } from "../db/schema.js";
@@ -181,6 +181,96 @@ eventsRouter.delete("/:id", authenticate, async (req, res, next) => {
     const ok = await svc.deleteEvent(id);
     if (!ok) {
       res.status(404).json({ error: "Событие не найдено" });
+      return;
+    }
+    res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ── Event Dependencies ──
+
+eventsRouter.post("/:id/dependencies", authenticate, async (req, res, next) => {
+  try {
+    const eventId = Number(req.params.id);
+    const body = dependencyCreateSchema.parse(req.body);
+
+    const [existing] = await db.select({ dataAreaId: eventTable.dataAreaId }).from(eventTable).where(eq(eventTable.id, eventId)).limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Событие не найдено" });
+      return;
+    }
+    const [depExists] = await db.select({ id: eventTable.id }).from(eventTable).where(eq(eventTable.id, body.depEventId)).limit(1);
+    if (!depExists) {
+      res.status(404).json({ error: "Зависимое событие не найдено" });
+      return;
+    }
+    if (eventId === body.depEventId) {
+      res.status(400).json({ error: "Событие не может зависеть от самого себя" });
+      return;
+    }
+
+    const dataAreaId = existing.dataAreaId;
+    if (dataAreaId) {
+      if (!(await checkPermission(req.user!.userId, dataAreaId, "canUpdate"))) {
+        res.status(403).json({ error: "Нет права на редактирование" });
+        return;
+      }
+    }
+
+    const dep = await svc.addDependency(eventId, body, dataAreaId);
+    res.status(201).json(dep);
+  } catch (e) {
+    next(e);
+  }
+});
+
+eventsRouter.patch("/:id/dependencies/:depId", authenticate, async (req, res, next) => {
+  try {
+    const eventId = Number(req.params.id);
+    const depEventId = Number(req.params.depId);
+    const body = dependencyUpdateSchema.parse(req.body);
+
+    const [existing] = await db.select({ dataAreaId: eventTable.dataAreaId }).from(eventTable).where(eq(eventTable.id, eventId)).limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Событие не найдено" });
+      return;
+    }
+    if (existing.dataAreaId && !(await checkPermission(req.user!.userId, existing.dataAreaId, "canUpdate"))) {
+      res.status(403).json({ error: "Нет права на редактирование" });
+      return;
+    }
+
+    const ok = await svc.updateDependency(eventId, depEventId, body);
+    if (!ok) {
+      res.status(404).json({ error: "Зависимость не найдена" });
+      return;
+    }
+    res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+});
+
+eventsRouter.delete("/:id/dependencies/:depId", authenticate, async (req, res, next) => {
+  try {
+    const eventId = Number(req.params.id);
+    const depEventId = Number(req.params.depId);
+
+    const [existing] = await db.select({ dataAreaId: eventTable.dataAreaId }).from(eventTable).where(eq(eventTable.id, eventId)).limit(1);
+    if (!existing) {
+      res.status(404).json({ error: "Событие не найдено" });
+      return;
+    }
+    if (existing.dataAreaId && !(await checkPermission(req.user!.userId, existing.dataAreaId, "canDelete"))) {
+      res.status(403).json({ error: "Нет права на удаление" });
+      return;
+    }
+
+    const ok = await svc.removeDependency(eventId, depEventId);
+    if (!ok) {
+      res.status(404).json({ error: "Зависимость не найдена" });
       return;
     }
     res.status(204).send();

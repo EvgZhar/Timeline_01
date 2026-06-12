@@ -477,6 +477,46 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
             </g>
           );
         })}
+        {/* Connection lines for dependencies */}
+        {hovered !== null && (() => {
+          const ev = events.find((e) => e.id === hovered);
+          if (!ev) return null;
+
+          const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
+          const tlIdx = visibleTimelines.findIndex((tl) => ev.timelines.some((t) => t.id === tl.id));
+          const laneIdx = tlIdx >= 0 ? tlIdx : 0;
+          const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
+
+          return (
+            <g key="dep-lines">
+              {(ev.dependencies ?? []).map((dep) => {
+                const depEv = events.find((e) => e.id === dep.depEventId);
+                if (!depEv) return null;
+                const depTlIdx = visibleTimelines.findIndex((tl) => depEv.timelines.some((t) => t.id === tl.id));
+                if (depTlIdx < 0) return null;
+                const depYMid = padding.top + depTlIdx * (laneH + GAP) + laneH / 2;
+                const depX = padding.left + xForTime(toDate(depEv.startDate).getTime(), effectiveRange, innerW);
+                const mx = (cx + depX) / 2;
+                const isPartOf = dep.dependencyType === "part_of";
+                const color = isPartOf ? "#2563eb" : "#d97706";
+                const dash = isPartOf ? "none" : "6 4";
+
+                return (
+                  <path
+                    key={dep.depEventId}
+                    d={`M ${cx} ${yMid} Q ${mx} ${(yMid + depYMid) / 2} ${depX} ${depYMid}`}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeDasharray={dash}
+                    opacity={0.7}
+                    style={{ pointerEvents: "none" }}
+                  />
+                );
+              })}
+            </g>
+          );
+        })()}
         {hovered !== null && (() => {
           const ev = events.find((e) => e.id === hovered);
           if (!ev) return null;

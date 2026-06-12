@@ -392,6 +392,7 @@ export function TimelineApp() {
           initialDate={eventSheet.mode === "create" ? eventSheet.initialDate : undefined}
           initialTimelineId={eventSheet.mode === "create" ? eventSheet.initialTimelineId : undefined}
           onClose={() => setEventSheet(null)}
+          filterState={{ tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode }}
         />
       )}
     </div>

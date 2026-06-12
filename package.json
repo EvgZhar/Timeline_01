@@ -19,9 +19,12 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.61.1",
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.0",
     "@tiptap/extension-placeholder": "^3.25.0",
     "@tiptap/react": "^3.25.0",
     "@tiptap/starter-kit": "^3.25.0",
+    "lightningcss-win32-x64-msvc": "^1.32.0",
     "marked": "^18.0.5",
     "turndown": "^7.2.4"
   }

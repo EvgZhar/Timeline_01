@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Download } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Link2 } from "lucide-react";
 import { formatDisplay, parseDisplay } from "@timeline/shared";
 import { api } from "@/api/client";
 import { SidePanel } from "@/components/SidePanel";
@@ -371,6 +371,25 @@ export function EventDetailPanel({ eventId }: EventDetailPanelProps) {
               )}
             </div>
           </fieldset>
+
+          {event?.dependencies && event.dependencies.length > 0 && (
+            <fieldset>
+              <legend className="mb-1 text-sm font-medium flex items-center gap-1">
+                <Link2 size={14} /> Связи
+              </legend>
+              <div className="space-y-1">
+                {event.dependencies.map((dep) => (
+                  <div key={dep.depEventId} className="flex items-center gap-2 rounded border border-slate-200 px-2 py-1.5">
+                    <Link2 size={14} className="shrink-0 text-slate-400" />
+                    <span className="min-w-0 flex-1 truncate text-sm">{dep.depEventName ?? dep.depEventId}</span>
+                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                      {dep.dependencyType === "part_of" ? "часть" : "влияет"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </fieldset>
+          )}
 
           <div className="flex items-center gap-2 pt-2">
             <button

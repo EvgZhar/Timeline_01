@@ -3,7 +3,9 @@ import type {
   AuthSettingsDto,
   CreateUserRequest,
   DataAreaDto,
+  DependencyType,
   DocumentDto,
+  EventDependencyDto,
   EventDto,
   ImportResult,
   LoginRequest,
@@ -151,6 +153,18 @@ export const api = {
     update: (id: number, body: unknown) =>
       request<EventDto>(`/api/events/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: number) => request<void>(`/api/events/${id}`, { method: "DELETE" }),
+    addDependency: (eventId: number, depEventId: number, dependencyType: DependencyType) =>
+      request<EventDependencyDto>(`/api/events/${eventId}/dependencies`, {
+        method: "POST",
+        body: JSON.stringify({ depEventId, dependencyType }),
+      }),
+    updateDependency: (eventId: number, depEventId: number, dependencyType: DependencyType) =>
+      request<void>(`/api/events/${eventId}/dependencies/${depEventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ dependencyType }),
+      }),
+    removeDependency: (eventId: number, depEventId: number) =>
+      request<void>(`/api/events/${eventId}/dependencies/${depEventId}`, { method: "DELETE" }),
   },
   tags: {
     list: (q?: string) =>
