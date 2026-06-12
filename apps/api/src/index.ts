@@ -40,7 +40,7 @@ const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
