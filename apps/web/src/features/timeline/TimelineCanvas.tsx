@@ -63,6 +63,18 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
     queryFn: () => api.events.list(),
   });
 
+  const connectedEventIds = useMemo(() => {
+    if (hovered === null || !highlightDependencies) return new Set<number>();
+    const hev = events.find((e) => e.id === hovered);
+    if (!hev) return new Set<number>();
+    const ids = new Set<number>();
+    (hev.dependencies ?? []).forEach((d) => ids.add(d.depEventId));
+    events.forEach((e) => {
+      if (e.dependencies?.some((d) => d.depEventId === hovered)) ids.add(e.id);
+    });
+    return ids;
+  }, [hovered, highlightDependencies, events]);
+
   const visibleTimelines = useMemo(
     () => timelines.filter((t) => t.visible).sort((a, b) => a.sortIndex - b.sortIndex),
     [timelines],
@@ -348,6 +360,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                   xForTime(toDate(ev.endDate).getTime(), effectiveRange, innerW);
                 const isPoint = ev.startDate === ev.endDate;
                 const isHover = hovered === ev.id;
+                const isConnected = highlightDependencies && hovered !== null && !isHover && connectedEventIds.has(ev.id);
                 const isThick = thicknessMap.get(ev.id) === "thick";
                 const label = labels.find((l) => l.id === ev.id);
                 const ly = label ? labelY(label.row, yMid) : yMid - 20;
@@ -364,6 +377,17 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                             cx={x1}
                             cy={eventY}
                             r={(isHover ? 7 : (isThick ? 6 : 5)) + 4}
+                            fill="none"
+                            stroke="#9ca3af"
+                            strokeWidth={1.5}
+                            strokeDasharray="6 4"
+                          />
+                        )}
+                        {isConnected && (
+                          <circle
+                            cx={x1}
+                            cy={eventY}
+                            r={(isThick ? 6 : 5) + 4}
                             fill="none"
                             stroke="#9ca3af"
                             strokeWidth={1.5}
@@ -398,6 +422,18 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     ) : (
                       <>
                         {isHover && (
+                          <rect
+                            x={Math.min(x1, x2) - 4}
+                            y={(isThick ? eventY - 5 : eventY - 4) - 4}
+                            width={Math.max(Math.abs(x2 - x1), 4) + 8}
+                            height={(isThick ? 10 : 8) + 8}
+                            fill="none"
+                            stroke="#9ca3af"
+                            strokeWidth={1.5}
+                            strokeDasharray="6 4"
+                          />
+                        )}
+                        {isConnected && (
                           <rect
                             x={Math.min(x1, x2) - 4}
                             y={(isThick ? eventY - 5 : eventY - 4) - 4}
@@ -478,7 +514,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
             </g>
           );
         })}
-        {/* Connection lines + dependency highlights */}
+        {/* Connection curves */}
         {hovered !== null && (() => {
           const ev = events.find((e) => e.id === hovered);
           if (!ev) return null;
@@ -488,16 +524,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const laneIdx = tlIdx >= 0 ? tlIdx : 0;
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
 
-          // Find all connected event IDs (bidirectional)
-          const connectedIds = new Set<number>();
-          (ev.dependencies ?? []).forEach((d) => connectedIds.add(d.depEventId));
-          events.forEach((e) => {
-            if (e.dependencies?.some((d) => d.depEventId === hovered)) connectedIds.add(e.id);
-          });
-
           return (
-            <g key="dep-lines">
-              {/* Connection curves */}
+            <g key="dep-curves">
               {(ev.dependencies ?? []).map((dep) => {
                 const depEv = events.find((e) => e.id === dep.depEventId);
                 if (!depEv) return null;
@@ -519,47 +547,6 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     strokeWidth={2}
                     strokeDasharray={dash}
                     opacity={0.7}
-                    style={{ pointerEvents: "none" }}
-                  />
-                );
-              })}
-              {/* Dashed outlines around connected events */}
-              {highlightDependencies && connectedIds.size > 0 && Array.from(connectedIds).map((cid) => {
-                const cev = events.find((e) => e.id === cid);
-                if (!cev) return null;
-                const cTlIdx = visibleTimelines.findIndex((tl) => cev.timelines.some((t) => t.id === tl.id));
-                if (cTlIdx < 0) return null;
-                const cLaneIdx = cTlIdx;
-                const cYMid = padding.top + cLaneIdx * (laneH + GAP) + laneH / 2;
-                const cX1 = padding.left + xForTime(toDate(cev.startDate).getTime(), effectiveRange, innerW);
-                const cX2 = padding.left + xForTime(toDate(cev.endDate).getTime(), effectiveRange, innerW);
-                const cIsPoint = cev.startDate === cev.endDate;
-                if (cIsPoint) {
-                  return (
-                    <circle
-                      key={cid}
-                      cx={cX1}
-                      cy={cYMid}
-                      r={9}
-                      fill="none"
-                      stroke="#9ca3af"
-                      strokeWidth={1.5}
-                      strokeDasharray="6 4"
-                      style={{ pointerEvents: "none" }}
-                    />
-                  );
-                }
-                return (
-                  <rect
-                    key={cid}
-                    x={Math.min(cX1, cX2) - 4}
-                    y={cYMid - 7}
-                    width={Math.max(Math.abs(cX2 - cX1), 4) + 8}
-                    height={14}
-                    fill="none"
-                    stroke="#9ca3af"
-                    strokeWidth={1.5}
-                    strokeDasharray="6 4"
                     style={{ pointerEvents: "none" }}
                   />
                 );
