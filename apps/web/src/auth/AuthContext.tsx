@@ -52,13 +52,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         if (!cancelled) {
-          setState((prev) => ({ ...prev, isLoading: false }));
+          clearAuthState();
         }
       }
     }
     init();
-    return () => { cancelled = true; };
+
+    function onAuthExpired() {
+      if (!cancelled) clearAuthState();
+    }
+    window.addEventListener("auth:expired", onAuthExpired);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("auth:expired", onAuthExpired);
+    };
   }, []);
+
+  function clearAuthState() {
+    localStorage.removeItem("user");
+    localStorage.removeItem("currentDataAreaId");
+    localStorage.removeItem("authSettings");
+    setState({ user: null, currentDataAreaId: null, settings: null, isLoading: false });
+  }
 
   const setAuth = useCallback((user: UserDto, currentDataAreaId: number) => {
     localStorage.setItem("user", JSON.stringify(user));

@@ -28,6 +28,12 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
+function dispatchAuthExpired(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("auth:expired"));
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
@@ -47,6 +53,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       if (retryRes.status === 204) return undefined as T;
       return retryRes.json() as Promise<T>;
     }
+    dispatchAuthExpired();
   }
 
   if (!res.ok) {
