@@ -523,8 +523,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
           const ly = yMid - 20;
 
-          const tooltipW = 276;
-          const tooltipH = 166 + (hasTags ? 41 : 0);
+          const tooltipW = 345;
+          const tooltipH = 230 + (hasTags ? 21 : 0);
           const workspaceMid = padding.left + innerW / 2;
           const tooltipX = cx < workspaceMid
             ? Math.max(padding.left + 4, cx + 100)
@@ -588,7 +588,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
               }}>
                 <div style={{
                   fontWeight: 600,
-                  fontSize: "12px",
+                  fontSize: "14px",
                   lineHeight: 1.3,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -618,7 +618,14 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                       {dateStr}
                     </div>
                     {notes && (
-                      <MarkdownView content={notes} compact />
+                      <div style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 10,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}>
+                        <MarkdownView content={notes} compact />
+                      </div>
                     )}
                   </div>
                 </div>
