@@ -292,7 +292,8 @@ export async function generatePdf(
     if (cookies && cookies.length > 0) {
       await page.setCookie(...cookies);
     }
-    await page.setContent(html, { waitUntil: "networkidle2" });
+    await page.setContent(html, { waitUntil: "load" });
+    await page.waitForNetworkIdle({ idleTime: 500 });
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
