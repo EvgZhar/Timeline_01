@@ -40,12 +40,31 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}.${m}.${y}`;
+}
+
 function buildHtml(
   events: EventDto[],
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
+  timelineSvg?: string,
 ): string {
   const visibleTls = timelines.filter((t) => visibleTimelineIds.includes(t.id));
+
+  let timelineImageHtml = "";
+  if (timelineSvg) {
+    const svgMatch = timelineSvg.match(/<svg[\s\S]*<\/svg>/i);
+    if (svgMatch) {
+      timelineImageHtml = `
+    <div class="timeline-image-container">
+      ${svgMatch[0]}
+    </div>
+    <div class="page-break"></div>`;
+    }
+  }
 
   let eventsHtml = "";
   for (const tl of visibleTls) {
@@ -61,13 +80,13 @@ function buildHtml(
     for (const ev of tlEvents) {
       const dateStr =
         ev.startDate === ev.endDate || !ev.endDate
-          ? ev.startDate
-          : `${ev.startDate} – ${ev.endDate}`;
+          ? formatDate(ev.startDate)
+          : `${formatDate(ev.startDate)} – ${formatDate(ev.endDate)}`;
 
       let tagsHtml = "";
       if (ev.tags.length > 0) {
         const tagNames = ev.tags.map((t) => escapeHtml(t.name)).join(", ");
-        tagsHtml = `<div class="event-tags">Метки: ${tagNames}</div>`;
+        tagsHtml = `<div class="event-tags"><strong>Метки:</strong> ${tagNames}</div>`;
       }
 
       let notesHtml = "";
@@ -87,13 +106,17 @@ function buildHtml(
           (d) =>
             `${escapeHtml(d.depEventName ?? `#${d.depEventId}`)} (${d.dependencyType})`,
         );
-        depsHtml = `<div class="event-deps">Зависимости: ${depStrs.join("; ")}</div>`;
+        depsHtml = `<div class="event-deps"><strong>Зависимости:</strong> ${depStrs.join("; ")}</div>`;
       }
 
       let docsHtml = "";
       for (const doc of ev.documents) {
         const link = doc.originalLink ?? doc.previewUrl ?? "";
-        docsHtml += `<div class="event-doc">📎 ${escapeHtml(doc.description)}: ${escapeHtml(link)}</div>`;
+        if (link) {
+          docsHtml += `<div class="event-doc"><a href="${escapeHtml(link)}">${escapeHtml(doc.description)}</a></div>`;
+        } else {
+          docsHtml += `<div class="event-doc">${escapeHtml(doc.description)}</div>`;
+        }
       }
 
       eventsHtml += `<div class="event">
@@ -138,6 +161,16 @@ function buildHtml(
     margin-bottom: 40mm;
   }
   .page-break { page-break-before: always; }
+  .timeline-image-container {
+    width: 100%;
+    text-align: center;
+    page-break-inside: avoid;
+    margin: 10mm 0;
+  }
+  .timeline-image-container svg {
+    max-width: 100%;
+    height: auto;
+  }
   .timeline-section { margin-bottom: 10mm; }
   .timeline-header {
     font-size: 18pt;
@@ -192,6 +225,13 @@ function buildHtml(
     margin-top: 0.5mm;
     word-break: break-all;
   }
+  .event-doc a {
+    color: #2266aa;
+    text-decoration: underline;
+  }
+  .event-doc a:hover {
+    color: #1a4d7a;
+  }
   .footer {
     text-align: center;
     font-size: 9pt;
@@ -204,6 +244,7 @@ function buildHtml(
   <div class="title">Хронология событий</div>
   <div class="subtitle">Экспорт из pretty-timeline.ru</div>
   <div class="page-break"></div>
+  ${timelineImageHtml}
   ${eventsHtml}
   <div class="footer">Создано в pretty-timeline.ru</div>
 </body>
@@ -214,8 +255,9 @@ export async function generatePdf(
   events: EventDto[],
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
+  timelineSvg?: string,
 ): Promise<Buffer> {
-  const html = buildHtml(events, timelines, visibleTimelineIds);
+  const html = buildHtml(events, timelines, visibleTimelineIds, timelineSvg);
 
   const browser = await puppeteer.launch({
     headless: true,

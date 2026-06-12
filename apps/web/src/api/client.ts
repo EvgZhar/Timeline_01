@@ -207,22 +207,20 @@ export const api = {
       events: unknown[],
       timelines: unknown[],
       visibleTimelineIds: number[],
+      timelineSvg?: string,
     ) => {
-      const res = await fetch("/api/pdf/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ events, timelines, visibleTimelineIds }),
-      });
+      const body = JSON.stringify({ events, timelines, visibleTimelineIds, timelineSvg });
+      const opts = {
+        method: "POST" as const,
+        headers: { "Content-Type": "application/json" as const },
+        credentials: "include" as const,
+        body,
+      };
+      const res = await fetch("/api/pdf/export", opts);
       if (res.status === 401) {
         const refreshed = await refreshAccessToken();
         if (refreshed) {
-          const retryRes = await fetch("/api/pdf/export", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ events, timelines, visibleTimelineIds }),
-          });
+          const retryRes = await fetch("/api/pdf/export", opts);
           if (!retryRes.ok) throw new Error("Ошибка экспорта PDF");
           const blob = await retryRes.blob();
           const url = URL.createObjectURL(blob);

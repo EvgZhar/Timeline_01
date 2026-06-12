@@ -261,7 +261,15 @@ export function TimelineApp() {
     const events = qc.getQueryData<EventDto[]>(["events"]) ?? [];
     const tls = qc.getQueryData<TimelineDto[]>(["timelines"]) ?? [];
     const visibleIds = tls.filter((t) => t.visible).map((t) => t.id);
-    await api.pdfExport.exportPdf(events, tls, visibleIds);
+    let timelineSvg: string | undefined;
+    const container = document.querySelector<HTMLElement>('[data-pdf-export="timeline-canvas"]');
+    const svgEl = container?.querySelector("svg");
+    if (svgEl) {
+      const clone = svgEl.cloneNode(true) as SVGSVGElement;
+      clone.querySelectorAll("foreignObject").forEach((fo) => fo.remove());
+      timelineSvg = new XMLSerializer().serializeToString(clone);
+    }
+    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineSvg);
   }, [qc]);
 
   // Clear all saved UI settings
