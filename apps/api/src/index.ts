@@ -63,7 +63,7 @@ const __dirname = path.dirname(__filename);
 const webDist = path.resolve(__dirname, "../../web/dist");
 if (existsSync(webDist)) {
   app.use(express.static(webDist));
-  app.get("*", (_req, res) => {
+  app.get("/{*path}", (_req, res) => {
     res.sendFile(path.join(webDist, "index.html"));
   });
   console.log(`Serving frontend from ${webDist}`);
