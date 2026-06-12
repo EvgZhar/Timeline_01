@@ -12,14 +12,16 @@ interface TopBarProps {
   onSearch: () => void;
   onProfile: () => void;
   onExport: () => void;
+  onExportPdf?: () => void;
   filterCount?: number;
   viewMode: "timeline" | "grid";
   onViewModeChange: (mode: "timeline" | "grid") => void;
 }
 
-export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, onExport, filterCount = 0, viewMode, onViewModeChange }: TopBarProps) {
+export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, onExport, onExportPdf, filterCount = 0, viewMode, onViewModeChange }: TopBarProps) {
   const { user, settings, currentDataAreaId, setCurrentDataAreaId } = useAuth();
   const [exporting, setExporting] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
 
   const handleExport = async () => {
     setExporting(true);
@@ -29,6 +31,18 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfil
       alert("Ошибка экспорта: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!onExportPdf) return;
+    setPdfExporting(true);
+    try {
+      await onExportPdf();
+    } catch (err) {
+      alert("Ошибка экспорта PDF: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setPdfExporting(false);
     }
   };
 
@@ -114,6 +128,14 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfil
         className="rounded-md border border-slate-300 bg-white p-2 text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {exporting ? <Loader2 className="animate-spin" size={20} /> : <FileDown size={20} />}
+      </TooltipButton>
+      <TooltipButton
+        label={pdfExporting ? "Экспорт PDF..." : "Экспорт в PDF"}
+        onClick={handleExportPdf}
+        disabled={pdfExporting || !onExportPdf}
+        className="rounded-md border border-slate-300 bg-white p-2 text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {pdfExporting ? <Loader2 className="animate-spin" size={20} /> : <FileDown size={20} />}
       </TooltipButton>
       <TooltipButton
         label="Настройки"

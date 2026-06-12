@@ -169,6 +169,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden"
+      data-pdf-export="timeline-canvas"
       style={{
         cursor: isDragging ? "grabbing" : "grab",
       }}

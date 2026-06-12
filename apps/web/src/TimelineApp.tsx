@@ -9,8 +9,10 @@ import { ProfileSheet } from "./features/profile/ProfileSheet";
 import { TimelinesSheet } from "./features/timelines/TimelinesSheet";
 import { TimelineCanvas } from "./features/timeline/TimelineCanvas";
 import { TagSearch } from "./features/tags/TagSearch";
+import { exportTimelineToPdf } from "@/lib/pdfExport";
 import { FilterBar } from "./features/tags/FilterBar";
 import { useAuth } from "./auth/AuthContext";
+import type { EventDto, TimelineDto } from "@timeline/shared";
 import type { ViewRange } from "./features/timeline/timeScale";
 
 export function TimelineApp() {
@@ -256,6 +258,15 @@ export function TimelineApp() {
     });
   }, [highlightDependencies]);
 
+  const handleExportPdf = useCallback(async () => {
+    const container = document.querySelector<HTMLElement>('[data-pdf-export="timeline-canvas"]');
+    if (!container) return;
+    const events = qc.getQueryData<EventDto[]>(["events"]) ?? [];
+    const tls = qc.getQueryData<TimelineDto[]>(["timelines"]) ?? [];
+    const visibleIds = tls.filter((t) => t.visible).map((t) => t.id);
+    await exportTimelineToPdf(container, events, tls, visibleIds);
+  }, [qc]);
+
   // Clear all saved UI settings
   const handleClearSettings = useCallback(() => {
     setViewRange(null);
@@ -290,6 +301,7 @@ export function TimelineApp() {
         onSettings={() => setSettingsOpen(true)}
         onSearch={() => setSearchOpen(true)}
         onProfile={() => setProfileOpen(true)}
+        onExportPdf={handleExportPdf}
         onExport={() => api.importExport.exportXlsx({
           tagFilterIds: tagFilterIds.length > 0 ? tagFilterIds : undefined,
           tagFilterMode: tagFilterIds.length > 0 ? tagFilterMode : undefined,
