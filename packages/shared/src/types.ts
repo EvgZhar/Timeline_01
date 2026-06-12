@@ -92,7 +92,33 @@ export interface DocumentDto {
   createdDateTime: string;
 }
 
-export type DependencyType = "part_of" | "influences";
+export type DependencyType = "part_of" | "contains" | "influences" | "influenced_by";
+
+export function reverseDependencyType(t: DependencyType): DependencyType {
+  switch (t) {
+    case "part_of": return "contains";
+    case "contains": return "part_of";
+    case "influences": return "influenced_by";
+    case "influenced_by": return "influences";
+  }
+}
+
+export function dependencyTypeLabel(t: DependencyType, short?: boolean): string {
+  if (short) {
+    switch (t) {
+      case "part_of": return "часть";
+      case "contains": return "содержит";
+      case "influences": return "влияет";
+      case "influenced_by": return "подвержен";
+    }
+  }
+  switch (t) {
+    case "part_of": return "Является частью";
+    case "contains": return "Содержит";
+    case "influences": return "Влияет на";
+    case "influenced_by": return "Подвержен влиянию";
+  }
+}
 
 export interface EventDependencyDto {
   eventId: number;
