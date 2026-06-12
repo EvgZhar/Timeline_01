@@ -208,9 +208,8 @@ export const api = {
       timelines: unknown[],
       visibleTimelineIds: number[],
       timelineSvg?: string,
-      documentImages?: Record<number, string>,
     ) => {
-      const body = JSON.stringify({ events, timelines, visibleTimelineIds, timelineSvg, documentImages });
+      const body = JSON.stringify({ events, timelines, visibleTimelineIds, timelineSvg });
       const res = await fetch("/api/pdf/export", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

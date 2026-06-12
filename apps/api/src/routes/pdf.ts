@@ -6,11 +6,19 @@ export const pdfRouter = Router();
 
 pdfRouter.post("/export", authenticate, async (req, res, next) => {
   try {
-    const { events, timelines, visibleTimelineIds, timelineSvg, documentImages } = req.body;
+    const { events, timelines, visibleTimelineIds, timelineSvg } = req.body;
 
     if (!Array.isArray(events) || !Array.isArray(timelines) || !Array.isArray(visibleTimelineIds)) {
       res.status(400).json({ error: "Неверные данные: ожидаются events, timelines, visibleTimelineIds" });
       return;
+    }
+
+    const cookies: { name: string; value: string }[] = [];
+    if (req.cookies?.accessToken) {
+      cookies.push({ name: "accessToken", value: req.cookies.accessToken });
+    }
+    if (req.cookies?.refreshToken) {
+      cookies.push({ name: "refreshToken", value: req.cookies.refreshToken });
     }
 
     const pdfBuffer = await generatePdf(
@@ -18,7 +26,7 @@ pdfRouter.post("/export", authenticate, async (req, res, next) => {
       timelines,
       visibleTimelineIds,
       typeof timelineSvg === "string" ? timelineSvg : undefined,
-      typeof documentImages === "object" && documentImages !== null ? documentImages : undefined,
+      cookies.length > 0 ? cookies : undefined,
     );
 
     res.setHeader("Content-Type", "application/pdf");

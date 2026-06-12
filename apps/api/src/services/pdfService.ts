@@ -51,7 +51,6 @@ function buildHtml(
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
   timelineSvg?: string,
-  documentImages?: Record<number, string>,
 ): string {
   const visibleTls = timelines.filter((t) => visibleTimelineIds.includes(t.id));
 
@@ -110,13 +109,6 @@ function buildHtml(
 
       let docsHtml = "";
       for (const doc of ev.documents) {
-        if (doc.resourceType === "image") {
-          const imgSrc = documentImages?.[doc.documentId] ?? doc.previewUrl ?? doc.originalLink;
-          if (imgSrc) {
-            docsHtml += `<div class="event-doc-img"><img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(doc.description)}" /><div class="event-doc-label">${escapeHtml(doc.description)}</div></div>`;
-            continue;
-          }
-        }
         const link = doc.originalLink ?? doc.previewUrl ?? "";
         if (link) {
           docsHtml += `<div class="event-doc"><a href="${escapeHtml(link)}">${escapeHtml(doc.description)}</a></div>`;
@@ -237,22 +229,6 @@ function buildHtml(
     color: #2266aa;
     text-decoration: underline;
   }
-  .event-doc-img {
-    margin-top: 1mm;
-    page-break-inside: avoid;
-  }
-  .event-doc-img img {
-    max-width: 100%;
-    max-height: 60mm;
-    display: block;
-    border: 1px solid #ddd;
-    border-radius: 1mm;
-  }
-  .event-doc-label {
-    font-size: 8pt;
-    color: #666;
-    margin-top: 0.5mm;
-  }
   .footer {
     text-align: center;
     font-size: 9pt;
@@ -264,7 +240,7 @@ function buildHtml(
 <body>
   <div class="title">Хронология событий</div>
   <div class="subtitle">Экспорт из pretty-timeline.ru</div>
-  <div class="page-break"></div>
+  ${timelineHtml ? "" : '<div class="page-break"></div>'}
   ${timelineHtml}
   ${eventsHtml}
   <div class="footer">Создано в pretty-timeline.ru</div>
@@ -277,9 +253,9 @@ export async function generatePdf(
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
   timelineSvg?: string,
-  documentImages?: Record<number, string>,
+  cookies?: { name: string; value: string }[],
 ): Promise<Buffer> {
-  const html = buildHtml(events, timelines, visibleTimelineIds, timelineSvg, documentImages);
+  const html = buildHtml(events, timelines, visibleTimelineIds, timelineSvg);
 
   const browser = await puppeteer.launch({
     headless: true,
@@ -292,8 +268,10 @@ export async function generatePdf(
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "load" });
-    await new Promise((r) => setTimeout(r, 2000));
+    if (cookies && cookies.length > 0) {
+      await page.setCookie(...cookies);
+    }
+    await page.setContent(html, { waitUntil: "networkidle2" });
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,

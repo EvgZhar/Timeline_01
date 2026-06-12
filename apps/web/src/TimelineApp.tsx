@@ -289,60 +289,34 @@ export function TimelineApp() {
       });
     }
 
-    // Helper to fetch image → data URL
-    const fetchAsDataUrl = async (url: string): Promise<string | null> => {
-      try {
-        const r = await fetch(url, { credentials: "same-origin" });
-        if (!r.ok) return null;
-        const blob = await r.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch {
-        return null;
-      }
-    };
-
-    // Pre-fetch document images
-    const documentImages: Record<number, string> = {};
-    let imgCount = 0;
-    for (const ev of events) {
-      if (imgCount >= 20) break;
-      let perEvent = 0;
-      for (const doc of ev.documents) {
-        if (perEvent >= 3 || imgCount >= 20) break;
-        if (doc.resourceType === "image" && doc.previewUrl && !documentImages[doc.documentId]) {
-          const dataUrl = await fetchAsDataUrl(doc.previewUrl);
-          if (dataUrl) {
-            documentImages[doc.documentId] = dataUrl;
-            imgCount++;
-            perEvent++;
-          }
-        }
-      }
-    }
-
-    // Timeline inline SVG
+    // Timeline inline SVG (with pre-fetched icon images as data URLs)
     let timelineSvg: string | undefined;
     const container = document.querySelector<HTMLElement>('[data-pdf-export="timeline-canvas"]');
     const svgEl = container?.querySelector("svg");
     if (svgEl) {
       const clone = svgEl.cloneNode(true) as SVGSVGElement;
       clone.querySelectorAll("foreignObject").forEach((fo) => fo.remove());
-      // Inline external images in SVG (timeline icons)
       for (const imgEl of Array.from(clone.querySelectorAll("image"))) {
         const href = imgEl.getAttribute("href") || imgEl.getAttributeNS("http://www.w3.org/1999/xlink", "href");
         if (href && !href.startsWith("data:")) {
-          const dataUrl = await fetchAsDataUrl(href);
-          if (dataUrl) imgEl.setAttribute("href", dataUrl);
+          try {
+            const r = await fetch(href, { credentials: "same-origin" });
+            if (r.ok) {
+              const blob = await r.blob();
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+              imgEl.setAttribute("href", dataUrl);
+            }
+          } catch { /* skip */ }
         }
       }
       timelineSvg = new XMLSerializer().serializeToString(clone);
     }
 
-    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineSvg, documentImages);
+    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineSvg);
   }, [qc, viewRange, tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode]);
 
   // Clear all saved UI settings
