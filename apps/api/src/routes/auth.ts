@@ -29,8 +29,8 @@ import { logAudit } from "../services/auditLog.js";
 
 export const authRouter = Router();
 
-const ACCESS_COOKIE_MAX_AGE = 15 * 60 * 1000; // 15 minutes
-const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+const ACCESS_COOKIE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
 const IS_DEV = process.env.NODE_ENV !== "production";
 
 const loginLimiter = rateLimit({
