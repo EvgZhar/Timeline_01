@@ -1,7 +1,8 @@
 import "dotenv/config";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
@@ -53,6 +54,20 @@ app.use("/api/import-export", importExportRouter);
 app.use("/api/settings", settingsRouter);
 
 app.use(errorHandler);
+
+// Serve web frontend in production
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const webDist = path.resolve(__dirname, "../../web/dist");
+if (existsSync(webDist)) {
+  app.use(express.static(webDist));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.join(webDist, "index.html"));
+  });
+  console.log(`Serving frontend from ${webDist}`);
+} else {
+  console.log(`Frontend build not found at ${webDist} — API-only mode`);
+}
 
 app.listen(port, () => {
   console.log(`API listening on http://localhost:${port}`);
