@@ -38,7 +38,8 @@ const loginLimiter = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
+  keyGenerator: (req) => (req.ip ?? req.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, ""),
+  validate: { xForwardedForHeader: false, ip: false },
   message: { error: "Слишком много запросов, попробуйте позже" },
 });
 
@@ -47,7 +48,8 @@ const refreshLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { xForwardedForHeader: false },
+  keyGenerator: (req) => (req.ip ?? req.socket.remoteAddress ?? "unknown").replace(/^::ffff:/, ""),
+  validate: { xForwardedForHeader: false, ip: false },
   message: { error: "Слишком много запросов, попробуйте позже" },
 });
 
