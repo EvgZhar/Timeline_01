@@ -23,6 +23,7 @@ interface TimelineCanvasProps {
   onEmptyClick: (date: string, timelineId: number) => void;
   initialRange?: ViewRange | null;
   onRangeChange?: (range: ViewRange) => void;
+  highlightDependencies?: boolean;
 }
 
 const TRACK_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"];
@@ -43,7 +44,7 @@ function lightenColor(hex: string, mix: number): string {
   ].map(toHex).join("")}`;
 }
 
-export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode, onEventClick, onEmptyClick, initialRange, onRangeChange }: TimelineCanvasProps) {
+export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode, onEventClick, onEmptyClick, initialRange, onRangeChange, highlightDependencies = true }: TimelineCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
@@ -477,7 +478,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
             </g>
           );
         })}
-        {/* Connection lines for dependencies */}
+        {/* Connection lines + dependency highlights */}
         {hovered !== null && (() => {
           const ev = events.find((e) => e.id === hovered);
           if (!ev) return null;
@@ -487,8 +488,16 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const laneIdx = tlIdx >= 0 ? tlIdx : 0;
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
 
+          // Find all connected event IDs (bidirectional)
+          const connectedIds = new Set<number>();
+          (ev.dependencies ?? []).forEach((d) => connectedIds.add(d.depEventId));
+          events.forEach((e) => {
+            if (e.dependencies?.some((d) => d.depEventId === hovered)) connectedIds.add(e.id);
+          });
+
           return (
             <g key="dep-lines">
+              {/* Connection curves */}
               {(ev.dependencies ?? []).map((dep) => {
                 const depEv = events.find((e) => e.id === dep.depEventId);
                 if (!depEv) return null;
@@ -510,6 +519,47 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     strokeWidth={2}
                     strokeDasharray={dash}
                     opacity={0.7}
+                    style={{ pointerEvents: "none" }}
+                  />
+                );
+              })}
+              {/* Dashed outlines around connected events */}
+              {highlightDependencies && connectedIds.size > 0 && Array.from(connectedIds).map((cid) => {
+                const cev = events.find((e) => e.id === cid);
+                if (!cev) return null;
+                const cTlIdx = visibleTimelines.findIndex((tl) => cev.timelines.some((t) => t.id === tl.id));
+                if (cTlIdx < 0) return null;
+                const cLaneIdx = cTlIdx;
+                const cYMid = padding.top + cLaneIdx * (laneH + GAP) + laneH / 2;
+                const cX1 = padding.left + xForTime(toDate(cev.startDate).getTime(), effectiveRange, innerW);
+                const cX2 = padding.left + xForTime(toDate(cev.endDate).getTime(), effectiveRange, innerW);
+                const cIsPoint = cev.startDate === cev.endDate;
+                if (cIsPoint) {
+                  return (
+                    <circle
+                      key={cid}
+                      cx={cX1}
+                      cy={cYMid}
+                      r={9}
+                      fill="none"
+                      stroke="#9ca3af"
+                      strokeWidth={1.5}
+                      strokeDasharray="6 4"
+                      style={{ pointerEvents: "none" }}
+                    />
+                  );
+                }
+                return (
+                  <rect
+                    key={cid}
+                    x={Math.min(cX1, cX2) - 4}
+                    y={cYMid - 7}
+                    width={Math.max(Math.abs(cX2 - cX1), 4) + 8}
+                    height={14}
+                    fill="none"
+                    stroke="#9ca3af"
+                    strokeWidth={1.5}
+                    strokeDasharray="6 4"
                     style={{ pointerEvents: "none" }}
                   />
                 );

@@ -18,6 +18,8 @@ interface SettingsSheetProps {
   textSearchMode?: "name" | "nameAndNotes";
   showTagsOnTimeline?: boolean;
   onShowTagsOnTimelineChange?: (val: boolean) => void;
+  highlightDependencies?: boolean;
+  onHighlightDependenciesChange?: (val: boolean) => void;
   onClearSettings?: () => void;
 }
 
@@ -155,6 +157,8 @@ export function SettingsSheet({
   textSearchMode,
   showTagsOnTimeline,
   onShowTagsOnTimelineChange,
+  highlightDependencies,
+  onHighlightDependenciesChange,
   onClearSettings,
 }: SettingsSheetProps) {
   const qc = useQueryClient();
@@ -261,6 +265,16 @@ export function SettingsSheet({
               className="rounded"
             />
             <span>Отображать теги на таймлайне</span>
+          </label>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={highlightDependencies ?? true}
+              onChange={(e) => onHighlightDependenciesChange?.(e.target.checked)}
+              className="rounded"
+            />
+            <span>Подсвечивать связанные события при наведении</span>
           </label>
 
           {hasSavedSettings && onClearSettings && (

@@ -31,6 +31,7 @@ export function TimelineApp() {
   const [textSearchMode, setTextSearchMode] = useState<"name" | "nameAndNotes">("name");
   const [viewRange, setViewRange] = useState<ViewRange | null>(null);
   const [showTagsOnTimeline, setShowTagsOnTimeline] = useState(false);
+  const [highlightDependencies, setHighlightDependencies] = useState(true);
   const [viewMode, setViewMode] = useState<"timeline" | "grid">("timeline");
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [gridWidth, setGridWidth] = useState(30);
@@ -110,6 +111,12 @@ export function TimelineApp() {
     staleTime: 60000,
   });
 
+  const { data: timelines = [] } = useQuery({
+    queryKey: ["timelines"],
+    queryFn: api.timelines.list,
+  });
+  const visibleTimelineIds = timelines.filter((t) => t.visible).map((t) => t.id);
+
   // Load auth settings on mount
   useEffect(() => {
     api.auth.getSettings()
@@ -162,6 +169,8 @@ export function TimelineApp() {
 
     const rawShowTags = settings.settings["ui.showTagsOnTimeline"];
     if (rawShowTags === "true") setShowTagsOnTimeline(true);
+    const rawHighlightDeps = settings.settings["ui.highlightDependencies"];
+    if (rawHighlightDeps === "false") setHighlightDependencies(false);
 
     const rawViewMode = settings.settings["ui.viewMode"];
     if (rawViewMode === "grid") setViewMode("grid");
@@ -239,6 +248,14 @@ export function TimelineApp() {
     return () => clearTimeout(saveTimerRef.current);
   }, [showTagsOnTimeline, qc]);
 
+  // Save highlightDependencies
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    api.settings.put({
+      "ui.highlightDependencies": highlightDependencies ? "true" : "false",
+    });
+  }, [highlightDependencies]);
+
   // Clear all saved UI settings
   const handleClearSettings = useCallback(() => {
     setViewRange(null);
@@ -247,6 +264,7 @@ export function TimelineApp() {
     setTextSearchQuery("");
     setTextSearchMode("name");
     setShowTagsOnTimeline(false);
+    setHighlightDependencies(true);
     setViewMode("timeline");
     setGridWidth(30);
     api.settings.put({
@@ -254,6 +272,7 @@ export function TimelineApp() {
       "ui.tagFilters": null,
       "ui.textSearch": null,
       "ui.showTagsOnTimeline": null,
+      "ui.highlightDependencies": null,
       "ui.viewMode": null,
       "ui.gridWidth": null,
     }).then(() => qc.invalidateQueries({ queryKey: ["settings"] }));
@@ -308,6 +327,7 @@ export function TimelineApp() {
             }
             initialRange={viewRange}
             onRangeChange={handleRangeChange}
+            highlightDependencies={highlightDependencies}
           />
         </main>
       ) : (
@@ -362,6 +382,8 @@ export function TimelineApp() {
         textSearchMode={textSearchMode}
         showTagsOnTimeline={showTagsOnTimeline}
         onShowTagsOnTimelineChange={setShowTagsOnTimeline}
+        highlightDependencies={highlightDependencies}
+        onHighlightDependenciesChange={setHighlightDependencies}
         onClearSettings={handleClearSettings}
       />
       <ProfileSheet open={profileOpen} onOpenChange={setProfileOpen} />
@@ -392,7 +414,7 @@ export function TimelineApp() {
           initialDate={eventSheet.mode === "create" ? eventSheet.initialDate : undefined}
           initialTimelineId={eventSheet.mode === "create" ? eventSheet.initialTimelineId : undefined}
           onClose={() => setEventSheet(null)}
-          filterState={{ tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode }}
+          filterState={{ tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode, viewRange, visibleTimelineIds }}
         />
       )}
     </div>

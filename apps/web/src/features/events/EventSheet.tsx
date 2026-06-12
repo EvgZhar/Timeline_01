@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { dependencyTypeLabel, formatDisplay, parseDisplay } from "@timeline/shared";
+import { dependencyTypeLabel, formatDisplay, parseDisplay, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Download, ExternalLink, Link2, Plus, Save, Trash2, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
@@ -8,6 +8,8 @@ import { Sheet } from "@/components/Sheet";
 import { DatePickerField } from "@/components/DatePickerField";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import type { DocumentDto, DependencyType } from "@timeline/shared";
+
+import type { ViewRange } from "../timeline/timeScale";
 
 interface EventSheetProps {
   mode: "create" | "edit";
@@ -20,6 +22,8 @@ interface EventSheetProps {
     tagFilterMode: "and" | "or";
     textSearchQuery: string;
     textSearchMode: "name" | "nameAndNotes";
+    viewRange: ViewRange | null;
+    visibleTimelineIds: number[];
   };
 }
 
@@ -288,7 +292,23 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
     }
     // Visible filter
     if (depFilterMode === "visible" && filterState) {
-      const { tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode } = filterState;
+      const { tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode, viewRange, visibleTimelineIds } = filterState;
+
+      // Timeline visibility
+      if (visibleTimelineIds.length > 0) {
+        list = list.filter((ev) => ev.timelines.some((t) => visibleTimelineIds.includes(t.id)));
+      }
+
+      // Date range
+      if (viewRange) {
+        list = list.filter((ev) => {
+          const startMs = toDate(ev.startDate).getTime();
+          const endMs = toDate(ev.endDate).getTime();
+          return startMs <= viewRange.endMs && endMs >= viewRange.startMs;
+        });
+      }
+
+      // Tag filter
       if (tagFilterIds.length > 0) {
         list = list.filter((ev) => {
           const ids = ev.tags.map((t) => t.id);
@@ -297,6 +317,8 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
             : tagFilterIds.some((id) => ids.includes(id));
         });
       }
+
+      // Text search
       if (textSearchQuery.trim()) {
         const q = textSearchQuery.toLowerCase();
         list = list.filter((ev) => {
@@ -451,7 +473,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
       open={true}
       side="right"
       onOpenChange={(o) => !o && handleClose()}
-      title={mode === "create" ? "Новое событие" : "Редактирование"}
+      title={mode === "create" ? "Новое событие" : (event?.name ?? "Редактирование")}
       className="w-[684px]"
       footer={
         <div className="flex items-center gap-2">
@@ -912,19 +934,31 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                 value={depSearch}
                 onChange={(e) => setDepSearch(e.target.value)}
               />
-              {filterState && (
-                <button
-                  type="button"
-                  className={`shrink-0 rounded border px-2 py-1 text-xs ${
-                    depFilterMode === "visible"
-                      ? "border-blue-500 bg-blue-50 text-blue-600"
-                      : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                  }`}
-                  onClick={() => setDepFilterMode(depFilterMode === "visible" ? "all" : "visible")}
-                >
-                  На экране
-                </button>
-              )}
+              {(() => {
+                const hasActiveFilters = filterState && (
+                  filterState.tagFilterIds.length > 0 ||
+                  filterState.textSearchQuery.trim() ||
+                  (filterState.viewRange !== null) ||
+                  (filterState.visibleTimelineIds.length > 0 && filterState.visibleTimelineIds.length < (allEvents.data?.length ?? 0))
+                );
+                const visibleCount = hasActiveFilters ? filteredDepEvents.length : (allEvents.data?.length ?? 0);
+                return (
+                  <button
+                    type="button"
+                    disabled={!hasActiveFilters}
+                    className={`shrink-0 rounded border px-2 py-1 text-xs ${
+                      depFilterMode === "visible"
+                        ? "border-blue-500 bg-blue-50 text-blue-600"
+                        : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                    onClick={() => setDepFilterMode(depFilterMode === "visible" ? "all" : "visible")}
+                  >
+                    {hasActiveFilters
+                      ? `На экране (${visibleCount})`
+                      : "Нет фильтров"}
+                  </button>
+                );
+              })()}
             </div>
 
             {filteredDepEvents.length > 0 && (
