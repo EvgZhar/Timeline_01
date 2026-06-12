@@ -279,13 +279,15 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           });
 
           const labels = layoutLabels(
-            laneEvents.map((ev) => ({
-              id: ev.id,
-              x:
-                padding.left +
-                xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW),
-              text: ev.name,
-            })),
+            laneEvents.map((ev) => {
+              const sx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
+              const ex = padding.left + xForTime(toDate(ev.endDate).getTime(), effectiveRange, innerW);
+              return {
+                id: ev.id,
+                x: ev.startDate === ev.endDate ? sx : (sx + ex) / 2,
+                text: ev.name,
+              };
+            }),
           );
 
           const trackMap = assignEventTracks(laneEvents);
@@ -362,6 +364,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 const isHover = hovered === ev.id;
                 const isConnected = highlightDependencies && hovered !== null && !isHover && connectedEventIds.has(ev.id);
                 const isThick = thicknessMap.get(ev.id) === "thick";
+                const labelX = isPoint ? x1 : (x1 + x2) / 2;
                 const label = labels.find((l) => l.id === ev.id);
                 const ly = label ? labelY(label.row, yMid) : yMid - 20;
                 const trackIdx = trackMap.get(ev.id) ?? 0;
@@ -482,22 +485,22 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     {label && (
                       <>
                         <line
-                          x1={x1}
+                          x1={labelX}
                           y1={eventY}
-                          x2={x1}
+                          x2={labelX}
                           y2={ly + 12}
                           stroke="#94a3b8"
                           strokeWidth={isHover ? 2 : 1}
                         />
                         <rect
-                          x={x1 - 60}
+                          x={labelX - 60}
                           y={ly - 10}
                           width={120}
                           height={20}
                           fill="transparent"
                         />
                         <text
-                          x={x1}
+                          x={labelX}
                           y={ly}
                           textAnchor="middle"
                           fontSize={12}
