@@ -497,9 +497,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 const depYMid = padding.top + depTlIdx * (laneH + GAP) + laneH / 2;
                 const depX = padding.left + xForTime(toDate(depEv.startDate).getTime(), effectiveRange, innerW);
                 const mx = (cx + depX) / 2;
-                const isPartOf = dep.dependencyType === "part_of";
-                const color = isPartOf ? "#2563eb" : "#d97706";
-                const dash = isPartOf ? "none" : "6 4";
+                const isComposition = dep.dependencyType === "part_of" || dep.dependencyType === "contains";
+                const color = isComposition ? "#2563eb" : "#d97706";
+                const dash = isComposition ? "none" : "6 4";
 
                 return (
                   <path

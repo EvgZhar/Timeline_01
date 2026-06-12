@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Download, Link2 } from "lucide-react";
-import { formatDisplay, parseDisplay } from "@timeline/shared";
+import { dependencyTypeLabel, formatDisplay, parseDisplay } from "@timeline/shared";
 import { api } from "@/api/client";
 import { SidePanel } from "@/components/SidePanel";
 import { DatePickerField } from "@/components/DatePickerField";
@@ -383,7 +383,7 @@ export function EventDetailPanel({ eventId }: EventDetailPanelProps) {
                     <Link2 size={14} className="shrink-0 text-slate-400" />
                     <span className="min-w-0 flex-1 truncate text-sm">{dep.depEventName ?? dep.depEventId}</span>
                     <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
-                      {dep.dependencyType === "part_of" ? "часть" : "влияет"}
+                      {dependencyTypeLabel(dep.dependencyType, true)}
                     </span>
                   </div>
                 ))}

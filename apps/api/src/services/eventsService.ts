@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
 import type { DependencyCreate, DependencyType, DependencyUpdate, EventCreate, EventDto, EventDependencyDto } from "@timeline/shared";
-import { fromStorage } from "@timeline/shared";
+import { fromStorage, reverseDependencyType } from "@timeline/shared";
 import { db } from "../db/index.js";
 import {
   documentEventLink,
@@ -320,8 +320,21 @@ export async function addDependency(
   data: DependencyCreate,
   dataAreaId?: number | null,
 ): Promise<EventDependencyDto> {
-  // Ensure the reverse dependency doesn't exist
-  const [existing] = await db
+  // Ensure neither direction exists
+  const dir1Exists = await db
+    .select({ eventId: eventDependencyTable.eventId })
+    .from(eventDependencyTable)
+    .where(
+      and(
+        eq(eventDependencyTable.eventId, eventId),
+        eq(eventDependencyTable.depEventId, data.depEventId),
+      ),
+    )
+    .limit(1);
+  if (dir1Exists.length > 0) {
+    throw new Error("Такая связь уже существует");
+  }
+  const dir2Exists = await db
     .select({ eventId: eventDependencyTable.eventId })
     .from(eventDependencyTable)
     .where(
@@ -331,8 +344,8 @@ export async function addDependency(
       ),
     )
     .limit(1);
-  if (existing) {
-    throw new Error("Обратная зависимость уже существует");
+  if (dir2Exists.length > 0) {
+    throw new Error("Обратная связь уже существует");
   }
 
   const [ev] = await db
@@ -341,14 +354,14 @@ export async function addDependency(
     .where(eq(eventTable.id, data.depEventId))
     .limit(1);
 
+  const reverseType = reverseDependencyType(data.dependencyType);
+
   const [row] = await db
     .insert(eventDependencyTable)
-    .values({
-      eventId,
-      depEventId: data.depEventId,
-      dependencyType: data.dependencyType,
-      dataAreaId,
-    })
+    .values([
+      { eventId, depEventId: data.depEventId, dependencyType: data.dependencyType, dataAreaId },
+      { eventId: data.depEventId, depEventId: eventId, dependencyType: reverseType, dataAreaId },
+    ])
     .returning();
 
   return {
@@ -365,9 +378,12 @@ export async function updateDependency(
   depEventId: number,
   data: DependencyUpdate,
 ): Promise<boolean> {
-  const [row] = await db
+  const newType = data.dependencyType;
+  const reverseType = reverseDependencyType(newType);
+
+  const [row1] = await db
     .update(eventDependencyTable)
-    .set({ dependencyType: data.dependencyType })
+    .set({ dependencyType: newType })
     .where(
       and(
         eq(eventDependencyTable.eventId, eventId),
@@ -375,14 +391,26 @@ export async function updateDependency(
       ),
     )
     .returning();
-  return !!row;
+  if (!row1) return false;
+
+  await db
+    .update(eventDependencyTable)
+    .set({ dependencyType: reverseType })
+    .where(
+      and(
+        eq(eventDependencyTable.eventId, depEventId),
+        eq(eventDependencyTable.depEventId, eventId),
+      ),
+    );
+
+  return true;
 }
 
 export async function removeDependency(
   eventId: number,
   depEventId: number,
 ): Promise<boolean> {
-  const r = await db
+  await db
     .delete(eventDependencyTable)
     .where(
       and(
@@ -390,5 +418,13 @@ export async function removeDependency(
         eq(eventDependencyTable.depEventId, depEventId),
       ),
     );
-  return (r.rowCount ?? 0) > 0;
+  await db
+    .delete(eventDependencyTable)
+    .where(
+      and(
+        eq(eventDependencyTable.eventId, depEventId),
+        eq(eventDependencyTable.depEventId, eventId),
+      ),
+    );
+  return true;
 }

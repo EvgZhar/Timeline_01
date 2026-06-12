@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatDisplay, parseDisplay } from "@timeline/shared";
+import { dependencyTypeLabel, formatDisplay, parseDisplay } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Download, ExternalLink, Link2, Plus, Save, Trash2, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
@@ -884,7 +884,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                     <Link2 size={14} className="shrink-0 text-slate-400" />
                     <span className="min-w-0 flex-1 truncate text-sm">{dep.depEventName ?? dep.depEventId}</span>
                     <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
-                      {dep.dependencyType === "part_of" ? "часть" : "влияет"}
+                      {dependencyTypeLabel(dep.dependencyType, true)}
                     </span>
                     <button
                       type="button"
@@ -956,7 +956,9 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
                   onChange={(e) => setPendingDepType(e.target.value as DependencyType)}
                 >
                   <option value="influences">Влияет на</option>
+                  <option value="influenced_by">Подвержен влиянию</option>
                   <option value="part_of">Является частью</option>
+                  <option value="contains">Содержит</option>
                 </select>
                 <TooltipButton
                   label="Добавить"

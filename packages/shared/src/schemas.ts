@@ -92,11 +92,11 @@ export const updateProfileSchema = z.object({
 
 export const dependencyCreateSchema = z.object({
   depEventId: z.number().int().positive(),
-  dependencyType: z.enum(["part_of", "influences"]),
+  dependencyType: z.enum(["part_of", "contains", "influences", "influenced_by"]),
 });
 
 export const dependencyUpdateSchema = z.object({
-  dependencyType: z.enum(["part_of", "influences"]),
+  dependencyType: z.enum(["part_of", "contains", "influences", "influenced_by"]),
 });
 
 export type TimelineCreate = z.infer<typeof timelineCreateSchema>;
