@@ -46,11 +46,46 @@ function formatDate(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
+function guessMime(url: string): string | null {
+  const ext = url.split(".").pop()?.toLowerCase().split("?")[0];
+  switch (ext) {
+    case "jpg": case "jpeg": return "image/jpeg";
+    case "png": return "image/png";
+    case "gif": return "image/gif";
+    case "webp": return "image/webp";
+    case "svg": return "image/svg+xml";
+    case "avif": return "image/avif";
+    case "ico": return "image/x-icon";
+    default: return null;
+  }
+}
+
+async function downloadAsDataUrl(url: string, signal: AbortSignal): Promise<string | null> {
+  try {
+    const response = await fetch(url, { signal });
+    if (!response.ok) return null;
+
+    const contentLength = response.headers.get("content-length");
+    if (contentLength && Number(contentLength) > 10 * 1024 * 1024) return null;
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType?.startsWith("image/")) return null;
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > 10 * 1024 * 1024) return null;
+
+    const base64 = buffer.toString("base64");
+    return `data:${contentType};base64,${base64}`;
+  } catch {
+    return null;
+  }
+}
+
 function buildHtml(
   events: EventDto[],
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
-  hostname: string,
+  imageMap: Map<number, string>,
   timelineSvg?: string,
   titleMeta?: { timelines?: string[]; filters?: string; dateRange?: string },
 ): string {
@@ -65,9 +100,6 @@ function buildHtml(
     </div>
   </div>`;
   }
-
-  const absUrl = (url: string): string =>
-    url.startsWith("/") ? `https://${hostname}${url}` : url;
 
   let eventsHtml = "";
   for (const tl of visibleTls) {
@@ -115,15 +147,15 @@ function buildHtml(
       let docsHtml = "";
       for (const doc of ev.documents) {
         if (doc.resourceType === "image") {
-          const imgSrc = doc.previewUrl ?? doc.originalLink;
-          if (imgSrc) {
-            docsHtml += `<div class="event-doc-img"><img src="${escapeHtml(absUrl(imgSrc))}" alt="${escapeHtml(doc.description)}" /><div class="event-doc-label">${escapeHtml(doc.description)}</div></div>`;
+          const dataUrl = imageMap.get(doc.documentId);
+          if (dataUrl) {
+            docsHtml += `<div class="event-doc-img"><img src="${escapeHtml(dataUrl)}" alt="${escapeHtml(doc.description)}" /><div class="event-doc-label">${escapeHtml(doc.description)}</div></div>`;
             continue;
           }
         }
-        const link = doc.originalLink ?? doc.previewUrl ?? "";
+        const link = doc.originalLink ?? doc.previewUrl;
         if (link) {
-          docsHtml += `<div class="event-doc"><a href="${escapeHtml(absUrl(link))}">${escapeHtml(doc.description)}</a></div>`;
+          docsHtml += `<div class="event-doc"><a href="${escapeHtml(link)}">${escapeHtml(doc.description)}</a></div>`;
         } else {
           docsHtml += `<div class="event-doc">${escapeHtml(doc.description)}</div>`;
         }
@@ -295,16 +327,41 @@ function buildHtml(
 </html>`;
 }
 
+const MAX_IMAGES = 20;
+const DOWNLOAD_TIMEOUT_MS = 60000;
+
 export async function generatePdf(
   events: EventDto[],
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
-  hostname: string,
   timelineSvg?: string,
-  cookies?: { name: string; value: string; domain: string }[],
   titleMeta?: { timelines?: string[]; filters?: string; dateRange?: string },
 ): Promise<Buffer> {
-  const html = buildHtml(events, timelines, visibleTimelineIds, hostname, timelineSvg, titleMeta);
+  const imageMap = new Map<number, string>();
+  const imageDocs: EventDocDto[] = [];
+  for (const ev of events) {
+    for (const doc of ev.documents) {
+      if (doc.resourceType === "image" && (doc.previewUrl ?? doc.originalLink)) {
+        imageDocs.push(doc);
+      }
+    }
+  }
+
+  const toDownload = imageDocs.slice(0, MAX_IMAGES);
+  if (toDownload.length > 0) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+    const tasks = toDownload.map((doc) => {
+      const url = doc.previewUrl ?? doc.originalLink!;
+      return downloadAsDataUrl(url, controller.signal).then((dataUrl) => {
+        if (dataUrl) imageMap.set(doc.documentId, dataUrl);
+      });
+    });
+    await Promise.allSettled(tasks);
+    clearTimeout(timer);
+  }
+
+  const html = buildHtml(events, timelines, visibleTimelineIds, imageMap, timelineSvg, titleMeta);
 
   const browser = await puppeteer.launch({
     headless: true,
@@ -317,15 +374,7 @@ export async function generatePdf(
 
   try {
     const page = await browser.newPage();
-    await page.goto(`https://${hostname}/api/health`, {
-      waitUntil: "load",
-      timeout: 15000,
-    }).catch(() => {});
-    if (cookies && cookies.length > 0) {
-      await page.setCookie(...cookies);
-    }
     await page.setContent(html, { waitUntil: "load" });
-    await page.waitForNetworkIdle({ idleTime: 1000 });
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,

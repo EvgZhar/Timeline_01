@@ -13,22 +13,11 @@ pdfRouter.post("/export", authenticate, async (req, res, next) => {
       return;
     }
 
-    const hostname = req.hostname;
-    const cookies: { name: string; value: string; domain: string }[] = [];
-    if (req.cookies?.accessToken) {
-      cookies.push({ name: "accessToken", value: req.cookies.accessToken, domain: hostname });
-    }
-    if (req.cookies?.refreshToken) {
-      cookies.push({ name: "refreshToken", value: req.cookies.refreshToken, domain: hostname });
-    }
-
     const pdfBuffer = await generatePdf(
       events,
       timelines,
       visibleTimelineIds,
-      hostname,
       typeof timelineSvg === "string" ? timelineSvg : undefined,
-      cookies.length > 0 ? cookies : undefined,
       typeof titleMeta === "object" && titleMeta !== null
         ? { timelines: Array.isArray(titleMeta.timelines) ? titleMeta.timelines : undefined,
             filters: typeof titleMeta.filters === "string" ? titleMeta.filters : undefined,
