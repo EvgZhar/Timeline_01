@@ -1,4 +1,5 @@
 import puppeteer from "puppeteer";
+import { formatDisplay, fromStorage, formatCenturyYear } from "@timeline/shared";
 
 interface EventDocDto {
   documentId: number;
@@ -40,10 +41,40 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}.${m}.${y}`;
+function formatDateRange(startIso: string, endIso: string | null): string {
+  if (!endIso || startIso === endIso) {
+    return formatDisplay(startIso);
+  }
+
+  const start = fromStorage(startIso);
+  const end = fromStorage(endIso);
+
+  const isEndDec31 = end.month === 12 && end.day === 31;
+  const isEndJan1 = end.month === 1 && end.day === 1;
+
+  if (isEndDec31 || isEndJan1) {
+    const sya = start.year;
+    const eya = end.year;
+    const yr = (y: number) => y < 0 ? `${-y} г днэ` : `${y} г`;
+    const startIsJan1 = start.month === 1 && start.day === 1;
+    const endIsJan1 = end.month === 1 && end.day === 1;
+    const startCentury = startIsJan1 ? formatCenturyYear(start.year) : null;
+    const endCentury = endIsJan1 ? formatCenturyYear(end.year) : null;
+
+    if (startCentury && endCentury && sya === eya) {
+      return startCentury;
+    } else if (startCentury && endCentury) {
+      return `${startCentury} – ${endCentury}`;
+    } else if (startCentury && !endCentury) {
+      return `${startCentury} – ${yr(eya)}`;
+    } else if (!startCentury && endCentury) {
+      return `${yr(sya)} – ${endCentury}`;
+    } else {
+      return sya === eya ? yr(sya) : `${yr(sya)} – ${yr(eya)}`;
+    }
+  }
+
+  return `${formatDisplay(startIso)} – ${formatDisplay(endIso)}`;
 }
 
 function guessMime(url: string): string | null {
@@ -113,10 +144,7 @@ function buildHtml(
       <div class="timeline-desc">${escapeHtml(tl.description ?? "")}</div>`;
 
     for (const ev of tlEvents) {
-      const dateStr =
-        ev.startDate === ev.endDate || !ev.endDate
-          ? formatDate(ev.startDate)
-          : `${formatDate(ev.startDate)} – ${formatDate(ev.endDate)}`;
+      const dateStr = formatDateRange(ev.startDate, ev.endDate);
 
       let tagsHtml = "";
       if (ev.tags.length > 0) {
