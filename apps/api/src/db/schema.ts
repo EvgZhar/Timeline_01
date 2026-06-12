@@ -224,6 +224,26 @@ export const sysAuditLogTable = pgTable("SysAuditLog", {
     .defaultNow(),
 });
 
+export const eventDependencyTable = pgTable(
+  "EventDependencyLink",
+  {
+    eventId: integer("EventId")
+      .notNull()
+      .references(() => eventTable.id, { onDelete: "cascade" }),
+    depEventId: integer("DepEventId")
+      .notNull()
+      .references(() => eventTable.id, { onDelete: "cascade" }),
+    dependencyType: varchar("DependencyType", { length: 20 }).notNull(),
+    dataAreaId: integer("DataAreaId").references(() => sysDataAreaTable.id),
+    createdDateTime: timestamp("CreatedDateTime", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("EventDependencyLink_unique").on(t.eventId, t.depEventId),
+  ],
+);
+
 export const appSettings = pgTable("AppSettings", {
   key: text("Key").primaryKey(),
   value: text("Value").notNull(),

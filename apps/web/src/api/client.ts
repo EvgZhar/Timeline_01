@@ -3,8 +3,11 @@ import type {
   AuthSettingsDto,
   CreateUserRequest,
   DataAreaDto,
+  DependencyType,
   DocumentDto,
+  EventDependencyDto,
   EventDto,
+  ImportResult,
   LoginRequest,
   RegisterRequest,
   SettingsDto,
@@ -27,9 +30,15 @@ async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
+function dispatchAuthExpired(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("auth:expired"));
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...init?.headers as Record<string, string>,
   };
 
@@ -46,6 +55,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       if (retryRes.status === 204) return undefined as T;
       return retryRes.json() as Promise<T>;
     }
+    dispatchAuthExpired();
   }
 
   if (!res.ok) {
@@ -143,6 +153,18 @@ export const api = {
     update: (id: number, body: unknown) =>
       request<EventDto>(`/api/events/${id}`, { method: "PUT", body: JSON.stringify(body) }),
     delete: (id: number) => request<void>(`/api/events/${id}`, { method: "DELETE" }),
+    addDependency: (eventId: number, depEventId: number, dependencyType: DependencyType) =>
+      request<EventDependencyDto>(`/api/events/${eventId}/dependencies`, {
+        method: "POST",
+        body: JSON.stringify({ depEventId, dependencyType }),
+      }),
+    updateDependency: (eventId: number, depEventId: number, dependencyType: DependencyType) =>
+      request<void>(`/api/events/${eventId}/dependencies/${depEventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ dependencyType }),
+      }),
+    removeDependency: (eventId: number, depEventId: number) =>
+      request<void>(`/api/events/${eventId}/dependencies/${depEventId}`, { method: "DELETE" }),
   },
   tags: {
     list: (q?: string) =>
@@ -179,5 +201,52 @@ export const api = {
         method: "PUT",
         body: JSON.stringify({ settings }),
       }),
+  },
+  importExport: {
+    exportXlsx: async (filters?: {
+      tagFilterIds?: number[];
+      tagFilterMode?: "and" | "or";
+      textSearchQuery?: string;
+      textSearchMode?: "name" | "nameAndNotes";
+    }) => {
+      const qp = new URLSearchParams();
+      if (filters?.tagFilterIds?.length) qp.set("tagFilterIds", filters.tagFilterIds.join(","));
+      if (filters?.tagFilterMode) qp.set("tagFilterMode", filters.tagFilterMode);
+      if (filters?.textSearchQuery) qp.set("textSearchQuery", filters.textSearchQuery);
+      if (filters?.textSearchMode) qp.set("textSearchMode", filters.textSearchMode);
+      const qs = qp.toString();
+      const url = qs ? `/api/import-export/export?${qs}` : "/api/import-export/export";
+
+      async function doFetch(): Promise<Response> {
+        const res = await fetch(url, { credentials: "include" });
+        if (res.status === 401) {
+          const refreshed = await refreshAccessToken();
+          if (refreshed) return fetch(url, { credentials: "include" });
+        }
+        return res;
+      }
+
+      const res = await doFetch();
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error ?? res.statusText);
+      }
+      const blob = await res.blob();
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = dlUrl;
+      a.download = `timeline-export-${Date.now()}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(dlUrl);
+    },
+    importXlsx: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      return request<ImportResult>("/api/import-export/import", {
+        method: "POST",
+        body: formData,
+        headers: {},
+      });
+    },
   },
 };

@@ -3,10 +3,10 @@ import { formatDisplay } from "@timeline/shared";
 import { useRef, useState } from "react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
-import { Check, Eraser, ImageOff, Link2, Pencil, Plus, X } from "lucide-react";
+import { Check, Download, Eraser, ImageOff, Link2, Loader2, Pencil, Plus, Upload, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import type { ViewRange } from "@/features/timeline/timeScale";
-import type { TagDto } from "@timeline/shared";
+import type { ImportResult, TagDto } from "@timeline/shared";
 
 interface SettingsSheetProps {
   open: boolean;
@@ -14,6 +14,8 @@ interface SettingsSheetProps {
   savedViewRange?: ViewRange | null;
   savedTagFilterIds?: number[];
   savedTagFilterMode?: "and" | "or";
+  textSearchQuery?: string;
+  textSearchMode?: "name" | "nameAndNotes";
   showTagsOnTimeline?: boolean;
   onShowTagsOnTimelineChange?: (val: boolean) => void;
   onClearSettings?: () => void;
@@ -43,12 +45,13 @@ function intToHex(color: number): string {
   return "#" + color.toString(16).padStart(6, "0");
 }
 
-type TabId = "interface" | "tags";
+type TabId = "interface" | "tags" | "import-export";
 
 function TabBar({ active, onChange }: { active: TabId; onChange: (t: TabId) => void }) {
   const tabs: { id: TabId; label: string }[] = [
     { id: "interface", label: "Интерфейс" },
     { id: "tags", label: "Теги" },
+    { id: "import-export", label: "Импорт/Экспорт" },
   ];
   return (
     <div className="mb-4 flex gap-1 border-b border-slate-200">
@@ -70,18 +73,93 @@ function TabBar({ active, onChange }: { active: TabId; onChange: (t: TabId) => v
   );
 }
 
+function ImportSection() {
+  const qc = useQueryClient();
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importing, setImporting] = useState(false);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const result = await api.importExport.importXlsx(file);
+      setImportResult(result);
+      qc.invalidateQueries({ queryKey: ["events"] });
+      qc.invalidateQueries({ queryKey: ["timelines"] });
+      qc.invalidateQueries({ queryKey: ["tags"] });
+    } catch (err) {
+      setImportResult({
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errors: [{ row: 0, message: (err as Error).message }],
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="rounded border border-slate-200 bg-slate-50 p-3 text-sm">
+      <div className="mb-2 font-medium">Импорт из Excel</div>
+      <p className="mb-2 text-xs text-slate-500">
+        Загрузите .xlsx-файл, созданный через экспорт. Таймлайны и теги будут
+        найдены по названию (или созданы, если не существуют). Если в колонке ID
+        указан существующий ID события, оно будет обновлено.
+      </p>
+      <label className="inline-flex cursor-pointer items-center gap-2 rounded bg-green-600 px-3 py-2 text-white hover:bg-green-700 disabled:opacity-50">
+        <Upload size={16} />
+        <span>{importing ? "Импорт..." : "Выбрать файл"}</span>
+        <input
+          type="file"
+          accept=".xlsx"
+          className="sr-only"
+          disabled={importing}
+          onChange={handleFile}
+        />
+      </label>
+
+      {importResult && (
+        <div className="mt-3 space-y-2">
+          <div className="flex gap-4 text-xs font-medium">
+            <span className="text-green-700">Создано: {importResult.created}</span>
+            <span className="text-blue-700">Обновлено: {importResult.updated}</span>
+            {importResult.skipped > 0 && (
+              <span className="text-amber-700">Пропущено: {importResult.skipped}</span>
+            )}
+          </div>
+          {importResult.errors.length > 0 && (
+            <div className="max-h-32 overflow-y-auto rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+              {importResult.errors.map((e, i) => (
+                <div key={i}>
+                  {e.row > 0 ? `Строка ${e.row}: ` : ""}{e.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SettingsSheet({
   open,
   onOpenChange,
   savedViewRange,
   savedTagFilterIds,
   savedTagFilterMode,
+  textSearchQuery,
+  textSearchMode,
   showTagsOnTimeline,
   onShowTagsOnTimelineChange,
   onClearSettings,
 }: SettingsSheetProps) {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabId>("interface");
+  const [exporting, setExporting] = useState(false);
 
   const { data: allTimelines = [] } = useQuery({
     queryKey: ["timelines"],
@@ -194,6 +272,46 @@ export function SettingsSheet({
               <Eraser size={16} />
             </TooltipButton>
           )}
+        </section>
+      )}
+
+      {activeTab === "import-export" && (
+        <section className="space-y-4">
+          <h3 className="font-medium">Импорт / Экспорт</h3>
+
+          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-sm">
+            <div className="mb-2 font-medium">Экспорт в Excel</div>
+            <p className="mb-2 text-xs text-slate-500">
+              Скачать все события, таймлайны и теги текущей области в формате .xlsx.
+              Файл содержит три листа: «Таймлайны», «Теги» и «События».
+              На листе «События» настроены выпадающие списки для выбора таймлайнов и тегов.
+            </p>
+            <TooltipButton
+              label={exporting ? "Экспорт..." : "Скачать .xlsx"}
+              disabled={exporting}
+              onClick={async () => {
+                setExporting(true);
+                try {
+                  await api.importExport.exportXlsx({
+                    tagFilterIds: savedTagFilterIds?.length ? savedTagFilterIds : undefined,
+                    tagFilterMode: savedTagFilterIds?.length ? savedTagFilterMode : undefined,
+                    textSearchQuery: textSearchQuery || undefined,
+                    textSearchMode: textSearchQuery ? textSearchMode : undefined,
+                  });
+                } catch (err) {
+                  alert("Ошибка экспорта: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              className="rounded bg-blue-600 p-2 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exporting ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
+              <span>{exporting ? "Экспорт..." : "Скачать .xlsx"}</span>
+            </TooltipButton>
+          </div>
+
+          <ImportSection />
         </section>
       )}
 

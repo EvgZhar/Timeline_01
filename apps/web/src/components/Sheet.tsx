@@ -10,6 +10,7 @@ interface SheetProps {
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  className?: string;
 }
 
 export function Sheet({
@@ -19,6 +20,7 @@ export function Sheet({
     title,
   children,
   footer,
+  className,
 }: SheetProps) {
   useEffect(() => {
     if (!open) return;
@@ -42,6 +44,7 @@ export function Sheet({
         className={cn(
           "fixed top-0 z-50 flex h-full w-[456px] max-w-[90vw] flex-col bg-white shadow-xl",
           side === "left" ? "left-0" : "right-0",
+          className,
         )}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">

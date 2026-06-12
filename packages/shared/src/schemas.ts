@@ -90,8 +90,19 @@ export const updateProfileSchema = z.object({
   lastName: z.string().min(1).max(100).optional(),
 });
 
+export const dependencyCreateSchema = z.object({
+  depEventId: z.number().int().positive(),
+  dependencyType: z.enum(["part_of", "influences"]),
+});
+
+export const dependencyUpdateSchema = z.object({
+  dependencyType: z.enum(["part_of", "influences"]),
+});
+
 export type TimelineCreate = z.infer<typeof timelineCreateSchema>;
 export type EventCreate = z.infer<typeof eventCreateSchema>;
 export type TagCreate = z.infer<typeof tagCreateSchema>;
 export type Login = z.infer<typeof loginSchema>;
 export type Register = z.infer<typeof registerSchema>;
+export type DependencyCreate = z.infer<typeof dependencyCreateSchema>;
+export type DependencyUpdate = z.infer<typeof dependencyUpdateSchema>;

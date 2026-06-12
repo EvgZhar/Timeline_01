@@ -1,8 +1,8 @@
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 import { randomBytes } from "node:crypto";
 
-const ACCESS_EXPIRY_S = 15 * 60; // 15 minutes
-const REFRESH_EXPIRY_D = 7; // 7 days
+const ACCESS_EXPIRY_S = 24 * 60 * 60; // 24 hours
+const REFRESH_EXPIRY_D = 30; // 30 days
 
 function getSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET ?? randomBytes(64).toString("hex");

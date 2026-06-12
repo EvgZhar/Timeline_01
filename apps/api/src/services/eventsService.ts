@@ -1,11 +1,12 @@
 import { and, asc, eq, inArray, type SQL } from "drizzle-orm";
-import type { EventCreate, EventDto } from "@timeline/shared";
+import type { DependencyCreate, DependencyType, DependencyUpdate, EventCreate, EventDto, EventDependencyDto } from "@timeline/shared";
 import { fromStorage } from "@timeline/shared";
 import { db } from "../db/index.js";
 import {
   documentEventLink,
   documentTable,
   eventTable,
+  eventDependencyTable,
   eventTimelineLink,
   tagEventLink,
   tagTable,
@@ -44,6 +45,7 @@ async function loadEventRelations(eventIds: number[]): Promise<{
       createdDateTime: string;
     }[]
   >;
+  dependencies: Map<number, EventDependencyDto[]>;
 }> {
   const timelines = await getTimelineIdsForEvents(eventIds);
 
@@ -119,7 +121,35 @@ async function loadEventRelations(eventIds: number[]): Promise<{
     tagMap.set(t.eventId, arr);
   }
 
-  return { timelines, tags: tagMap, documents };
+  const depLinks =
+    eventIds.length > 0
+      ? await db
+          .select({
+            eventId: eventDependencyTable.eventId,
+            depEventId: eventDependencyTable.depEventId,
+            dependencyType: eventDependencyTable.dependencyType,
+            createdDateTime: eventDependencyTable.createdDateTime,
+            depEventName: eventTable.name,
+          })
+          .from(eventDependencyTable)
+          .innerJoin(eventTable, eq(eventDependencyTable.depEventId, eventTable.id))
+          .where(inArray(eventDependencyTable.eventId, eventIds))
+      : [];
+
+  const dependencies = new Map<number, EventDependencyDto[]>();
+  for (const d of depLinks) {
+    const arr = dependencies.get(d.eventId) ?? [];
+    arr.push({
+      eventId: d.eventId,
+      depEventId: d.depEventId,
+      dependencyType: d.dependencyType as DependencyType,
+      createdDateTime: d.createdDateTime?.toISOString() ?? new Date().toISOString(),
+      depEventName: d.depEventName,
+    });
+    dependencies.set(d.eventId, arr);
+  }
+
+  return { timelines, tags: tagMap, documents, dependencies };
 }
 
 function toDto(
@@ -155,6 +185,7 @@ function toDto(
           ? `/api/documents/${d.documentId}/preview`
           : d.originalLink ?? undefined,
     })),
+    dependencies: rel.dependencies.get(row.id) ?? [],
   };
 }
 
@@ -239,6 +270,23 @@ export async function updateEvent(id: number, data: EventCreate): Promise<EventD
   return getEvent(id);
 }
 
+/** Обновляет только name/startDate/endDate/notes — без таймлайнов и тегов */
+export async function updateEventMeta(
+  id: number,
+  data: { name: string; startDate: string; endDate?: string; notes: string | null },
+): Promise<void> {
+  const endDate = data.endDate ?? data.startDate;
+  await db
+    .update(eventTable)
+    .set({
+      name: data.name,
+      startDate: toDbDate(data.startDate),
+      endDate: toDbDate(endDate),
+      notes: data.notes ?? null,
+    })
+    .where(eq(eventTable.id, id));
+}
+
 async function syncEventLinks(eventId: number, data: EventCreate): Promise<void> {
   if (data.timelineIds.length > 0) {
     const timelines = await db
@@ -264,5 +312,83 @@ async function syncEventLinks(eventId: number, data: EventCreate): Promise<void>
 
 export async function deleteEvent(id: number): Promise<boolean> {
   const r = await db.delete(eventTable).where(eq(eventTable.id, id));
+  return (r.rowCount ?? 0) > 0;
+}
+
+export async function addDependency(
+  eventId: number,
+  data: DependencyCreate,
+  dataAreaId?: number | null,
+): Promise<EventDependencyDto> {
+  // Ensure the reverse dependency doesn't exist
+  const [existing] = await db
+    .select({ eventId: eventDependencyTable.eventId })
+    .from(eventDependencyTable)
+    .where(
+      and(
+        eq(eventDependencyTable.eventId, data.depEventId),
+        eq(eventDependencyTable.depEventId, eventId),
+      ),
+    )
+    .limit(1);
+  if (existing) {
+    throw new Error("Обратная зависимость уже существует");
+  }
+
+  const [ev] = await db
+    .select({ name: eventTable.name })
+    .from(eventTable)
+    .where(eq(eventTable.id, data.depEventId))
+    .limit(1);
+
+  const [row] = await db
+    .insert(eventDependencyTable)
+    .values({
+      eventId,
+      depEventId: data.depEventId,
+      dependencyType: data.dependencyType,
+      dataAreaId,
+    })
+    .returning();
+
+  return {
+    eventId: row.eventId,
+    depEventId: row.depEventId,
+    dependencyType: row.dependencyType as DependencyType,
+    createdDateTime: row.createdDateTime?.toISOString() ?? new Date().toISOString(),
+    depEventName: ev?.name,
+  };
+}
+
+export async function updateDependency(
+  eventId: number,
+  depEventId: number,
+  data: DependencyUpdate,
+): Promise<boolean> {
+  const [row] = await db
+    .update(eventDependencyTable)
+    .set({ dependencyType: data.dependencyType })
+    .where(
+      and(
+        eq(eventDependencyTable.eventId, eventId),
+        eq(eventDependencyTable.depEventId, depEventId),
+      ),
+    )
+    .returning();
+  return !!row;
+}
+
+export async function removeDependency(
+  eventId: number,
+  depEventId: number,
+): Promise<boolean> {
+  const r = await db
+    .delete(eventDependencyTable)
+    .where(
+      and(
+        eq(eventDependencyTable.eventId, eventId),
+        eq(eventDependencyTable.depEventId, depEventId),
+      ),
+    );
   return (r.rowCount ?? 0) > 0;
 }

@@ -29,6 +29,13 @@
       "when": 1780141475126,
       "tag": "0003_talented_the_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781275482613,
+      "tag": "0004_absurd_prowler",
+      "breakpoints": true
     }
   ]
 }

@@ -61,7 +61,8 @@ Monorepo (npm workspaces). Two apps: `api` (backend) and `web` (frontend). Share
 ├── .env              # Local env vars (git-ignored)
 ├── .env.example      # Template for .env
 ├── package.json      # Root scripts (dev, build, db:*)
-└── tsconfig.base.json
+├── tsconfig.base.json
+└── test-scenarios/   # Ручные сценарии тестирования (см. README.md)
 ```
 
 ## Database

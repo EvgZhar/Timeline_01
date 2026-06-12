@@ -1,4 +1,5 @@
-import { CalendarPlus, Layers, LayoutList, Rows3, Search, Settings } from "lucide-react";
+import { useState } from "react";
+import { CalendarPlus, FileDown, Layers, LayoutList, Loader2, Rows3, Search, Settings } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { api } from "@/api/client";
 import { TooltipButton } from "@/components/TooltipButton";
@@ -10,13 +11,26 @@ interface TopBarProps {
   onSettings: () => void;
   onSearch: () => void;
   onProfile: () => void;
+  onExport: () => void;
   filterCount?: number;
   viewMode: "timeline" | "grid";
   onViewModeChange: (mode: "timeline" | "grid") => void;
 }
 
-export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, filterCount = 0, viewMode, onViewModeChange }: TopBarProps) {
+export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfile, onExport, filterCount = 0, viewMode, onViewModeChange }: TopBarProps) {
   const { user, settings, currentDataAreaId, setCurrentDataAreaId } = useAuth();
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await onExport();
+    } catch (err) {
+      alert("Ошибка экспорта: " + (err instanceof Error ? err.message : "Неизвестная ошибка"));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleAreaChange = async (areaId: number) => {
     try {
@@ -92,6 +106,14 @@ export function TopBar({ onTimelines, onAddEvent, onSettings, onSearch, onProfil
         className="rounded-md bg-blue-600 p-2 text-white hover:bg-blue-700"
       >
         <CalendarPlus size={20} />
+      </TooltipButton>
+      <TooltipButton
+        label={exporting ? "Экспорт..." : "Экспорт в Excel"}
+        onClick={handleExport}
+        disabled={exporting}
+        className="rounded-md border border-slate-300 bg-white p-2 text-green-700 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {exporting ? <Loader2 className="animate-spin" size={20} /> : <FileDown size={20} />}
       </TooltipButton>
       <TooltipButton
         label="Настройки"

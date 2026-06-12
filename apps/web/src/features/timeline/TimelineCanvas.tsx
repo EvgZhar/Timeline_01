@@ -5,6 +5,7 @@ import { api } from "@/api/client";
 import { assignBarThickness, assignEventTracks } from "./eventLayout";
 import { labelY, layoutLabels } from "./labelLayout";
 import { ZoomControls } from "./ZoomControls";
+import { MarkdownView } from "@/components/MarkdownView";
 import {
   computeInitialRange,
   generateTicks,
@@ -476,11 +477,51 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
             </g>
           );
         })}
+        {/* Connection lines for dependencies */}
         {hovered !== null && (() => {
           const ev = events.find((e) => e.id === hovered);
           if (!ev) return null;
 
-          const previewDoc = ev.documents.find((d) => d.isPrimary) ?? ev.documents[0];
+          const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
+          const tlIdx = visibleTimelines.findIndex((tl) => ev.timelines.some((t) => t.id === tl.id));
+          const laneIdx = tlIdx >= 0 ? tlIdx : 0;
+          const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
+
+          return (
+            <g key="dep-lines">
+              {(ev.dependencies ?? []).map((dep) => {
+                const depEv = events.find((e) => e.id === dep.depEventId);
+                if (!depEv) return null;
+                const depTlIdx = visibleTimelines.findIndex((tl) => depEv.timelines.some((t) => t.id === tl.id));
+                if (depTlIdx < 0) return null;
+                const depYMid = padding.top + depTlIdx * (laneH + GAP) + laneH / 2;
+                const depX = padding.left + xForTime(toDate(depEv.startDate).getTime(), effectiveRange, innerW);
+                const mx = (cx + depX) / 2;
+                const isPartOf = dep.dependencyType === "part_of";
+                const color = isPartOf ? "#2563eb" : "#d97706";
+                const dash = isPartOf ? "none" : "6 4";
+
+                return (
+                  <path
+                    key={dep.depEventId}
+                    d={`M ${cx} ${yMid} Q ${mx} ${(yMid + depYMid) / 2} ${depX} ${depYMid}`}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeDasharray={dash}
+                    opacity={0.7}
+                    style={{ pointerEvents: "none" }}
+                  />
+                );
+              })}
+            </g>
+          );
+        })()}
+        {hovered !== null && (() => {
+          const ev = events.find((e) => e.id === hovered);
+          if (!ev) return null;
+
+          const previewDoc = ev.documents.find((d) => d.isPrimary && d.resourceType === "image");
           const imgUrl = previewDoc?.previewUrl;
 
           const sy = ev.startDate;
@@ -514,7 +555,6 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           }
 
           const notes = ev.notes ?? "";
-          const truncated = notes.length > 120 ? notes.slice(0, 120) + "…" : notes;
           const hasTags = ev.tags.length > 0;
 
           const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
@@ -523,14 +563,35 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
           const ly = yMid - 20;
 
-          const tooltipW = 230;
-          const tooltipH = 115 + (hasTags ? 28 : 0);
-          const tooltipX = Math.max(padding.left + 4, cx - tooltipW / 2);
-          const tooltipY = Math.max(padding.top + 4, ly - tooltipH - 14);
+          const tooltipW = 345;
+          const tooltipH = 230 + (hasTags ? 21 : 0);
+          const workspaceMid = padding.left + innerW / 2;
+          const tooltipX = cx < workspaceMid
+            ? Math.max(padding.left + 4, cx + 100)
+            : Math.min(cx - tooltipW - 100, padding.left + innerW - tooltipW - 4);
+          const tooltipY = Math.min(
+            Math.max(padding.top + 4, ly - tooltipH - 14),
+            padding.top + laneIdx * (laneH + GAP) + laneH - tooltipH - 4,
+          );
+
+          const lineX = tooltipX + tooltipW / 2;
+          const lineY1 = tooltipY + tooltipH;
+          const lineY2 = ly;
 
           return (
+            <>
+              {/* Connecting line */}
+              <line
+                x1={lineX} y1={lineY1}
+                x2={lineX} y2={lineY2}
+                stroke="#94a3b8"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+                style={{ animation: "tooltip-in 0.2s ease-out forwards" }}
+              />
             <foreignObject x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH}>
               <div
+                className="tooltip-enter"
                 onMouseEnter={() => {
                   if (hoverTimeoutRef.current) {
                     clearTimeout(hoverTimeoutRef.current);
@@ -567,7 +628,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
               }}>
                 <div style={{
                   fontWeight: 600,
-                  fontSize: "12px",
+                  fontSize: "14px",
                   lineHeight: 1.3,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -597,65 +658,77 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                       {dateStr}
                     </div>
                     {notes && (
-                      <div style={{ color: "#64748b", wordBreak: "break-word", fontSize: "10px" }}>
-                        {truncated}
+                      <div style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 10,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}>
+                        <MarkdownView content={notes} compact />
                       </div>
                     )}
                   </div>
                 </div>
-                {hasTags && (
-                  <div style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "3px",
-                    flexShrink: 0,
-                  }}>
-                    {ev.tags.map((tag) => {
-                      const tagHex = tag.color.toString(16).padStart(6, "0");
-                      return (
-                        <span key={tag.id} style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "2px",
-                          borderRadius: "4px",
-                          border: "1px solid #e2e8f0",
-                          padding: tag.previewUrl ? "1px" : "1px 5px",
-                          fontSize: "9px",
-                          lineHeight: "16px",
-                          color: "#475569",
-                        }}>
-                          {tag.previewUrl ? (
-                            <img
-                              src={tag.previewUrl}
-                              alt={tag.name}
-                              title={tag.name}
-                              style={{
-                                width: "16px",
-                                height: "16px",
-                                objectFit: "cover",
-                                borderRadius: "3px",
-                                flexShrink: 0,
-                              }}
-                            />
-                          ) : (
-                            <>
-                              <span style={{
-                                display: "inline-block",
-                                width: "8px",
-                                height: "8px",
-                                borderRadius: "50%",
-                                backgroundColor: `#${tagHex}`,
-                              }} />
-                              <span style={{ marginLeft: "3px", fontSize: "9px" }}>{tag.name}</span>
-                            </>
-                          )}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
+                <div style={{
+                  flexShrink: 0,
+                  borderTop: hasTags ? "1px solid #e2e8f0" : "none",
+                  paddingTop: hasTags ? "4px" : 0,
+                  marginTop: "auto",
+                }}>
+                  {hasTags && (
+                    <div style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "3px",
+                    }}>
+                      {ev.tags.map((tag) => {
+                        const tagHex = tag.color.toString(16).padStart(6, "0");
+                        return (
+                          <span key={tag.id} style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "2px",
+                            borderRadius: "4px",
+                            border: "1px solid #e2e8f0",
+                            padding: tag.previewUrl ? "1px" : "1px 5px",
+                            fontSize: "9px",
+                            lineHeight: "16px",
+                            color: "#475569",
+                          }}>
+                            {tag.previewUrl ? (
+                              <img
+                                src={tag.previewUrl}
+                                alt={tag.name}
+                                title={tag.name}
+                                style={{
+                                  width: "16px",
+                                  height: "16px",
+                                  objectFit: "cover",
+                                  borderRadius: "3px",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            ) : (
+                              <>
+                                <span style={{
+                                  display: "inline-block",
+                                  width: "8px",
+                                  height: "8px",
+                                  borderRadius: "50%",
+                                  backgroundColor: `#${tagHex}`,
+                                }} />
+                                <span style={{ marginLeft: "3px", fontSize: "9px" }}>{tag.name}</span>
+                              </>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </foreignObject>
+          </>
           );
         })()}
       </svg>

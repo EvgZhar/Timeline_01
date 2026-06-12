@@ -177,6 +177,11 @@ npm run db:cleanup-tokens -w @timeline/api
 # Сбросить rate limiters (если поймали "Слишком много запросов")
 # Убивает процесс API — tsx watch перезапустит автоматически
 npm run rate-limit:reset -w @timeline/api
+
+# Сбросить пароль админа на admin/admin + обнулить счётчик неудачных попыток
+# (счётчик живёт в памяти rate-limiter'а, поэтому перезапуск API сбрасывает его)
+npm run admin:reset-password -w @timeline/api
+npm run rate-limit:reset -w @timeline/api
 ```
 
 ## Переменные окружения

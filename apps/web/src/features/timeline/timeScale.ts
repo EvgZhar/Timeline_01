@@ -41,20 +41,21 @@ export function timeForX(x: number, range: ViewRange, width: number): number {
 export function formatTick(ms: number, stepMs: number): string {
   const yearMs = 365.25 * 24 * 60 * 60 * 1000;
   const monthMs = 30 * 24 * 60 * 60 * 1000;
-  const dayMs = 24 * 60 * 60 * 1000;
 
-  const year = Math.round(1970 + ms / yearMs);
+  if (stepMs >= yearMs * 0.9) {
+    const d = new Date(ms);
+    return formatCenturyYear(d.getUTCFullYear()) ?? `${d.getUTCFullYear()}`;
+  }
 
-  if (stepMs >= yearMs * 0.9) return formatCenturyYear(year) ?? `${year}`;
+  const d = new Date(ms);
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth() + 1;
 
   if (stepMs >= monthMs * 0.9) {
-    const month = Math.floor((ms - (year - 1970) * yearMs) / monthMs) + 1;
     return `${String(month).padStart(2, "0")}.${year}`;
   }
 
-  const yearBase = (year - 1970) * yearMs;
-  const month = Math.floor((ms - yearBase) / monthMs) + 1;
-  const day = Math.floor((ms - yearBase - (month - 1) * monthMs) / dayMs) + 1;
+  const day = d.getUTCDate();
   const yStr = year < 0 ? "-" + String(-year).padStart(4, "0") : String(year).padStart(4, "0");
   const iso = `${yStr}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   try {

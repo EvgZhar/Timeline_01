@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDisplay, parseDisplay } from "@timeline/shared";
-import { useEffect, useRef, useState } from "react";
-import { Check, ExternalLink, Plus, Save, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Download, ExternalLink, Link2, Plus, Save, Trash2, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
 import { DatePickerField } from "@/components/DatePickerField";
-import type { DocumentDto } from "@timeline/shared";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
+import type { DocumentDto, DependencyType } from "@timeline/shared";
 
 interface EventSheetProps {
   mode: "create" | "edit";
@@ -14,6 +15,12 @@ interface EventSheetProps {
   initialDate?: string;
   initialTimelineId?: number;
   onClose: () => void;
+  filterState?: {
+    tagFilterIds: number[];
+    tagFilterMode: "and" | "or";
+    textSearchQuery: string;
+    textSearchMode: "name" | "nameAndNotes";
+  };
 }
 
 interface PendingDoc {
@@ -64,9 +71,19 @@ function DocThumbnail({ doc }: { doc: DocumentDto | PendingDoc }) {
   );
 }
 
-export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onClose }: EventSheetProps) {
+function downloadMd(notes: string, name: string) {
+  const blob = new Blob([notes], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${name.replace(/[^a-zA-Zа-яА-Я0-9]/g, "_")}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onClose, filterState }: EventSheetProps) {
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"main" | "attachments">("main");
+  const [activeTab, setActiveTab] = useState<"main" | "attachments" | "description" | "dependencies">("main");
   const { data: event } = useQuery({
     queryKey: ["event", eventId],
     queryFn: () => api.events.get(eventId!),
@@ -231,6 +248,71 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
 
   const primaryDoc = docs.find((d) => d.isPrimary);
 
+  // ── Dependencies ──
+  const addDepMut = useMutation({
+    mutationFn: (params: { depEventId: number; dependencyType: DependencyType }) =>
+      api.events.addDependency(eventId!, params.depEventId, params.dependencyType),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["event", eventId] });
+    },
+  });
+
+  const removeDepMut = useMutation({
+    mutationFn: (depEventId: number) => api.events.removeDependency(eventId!, depEventId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["event", eventId] });
+    },
+  });
+
+  const allEvents = useQuery({
+    queryKey: ["events"],
+    queryFn: () => api.events.list(),
+    enabled: mode === "edit" && activeTab === "dependencies",
+  });
+
+  const [depSearch, setDepSearch] = useState("");
+  const [depFilterMode, setDepFilterMode] = useState<"visible" | "all">("all");
+
+  const filteredDepEvents = useMemo(() => {
+    if (!allEvents.data) return [];
+    let list = allEvents.data;
+    // Exclude self
+    list = list.filter((ev) => ev.id !== eventId);
+    // Exclude already linked
+    const linkedIds = new Set((event?.dependencies ?? []).map((d) => d.depEventId));
+    list = list.filter((ev) => !linkedIds.has(ev.id));
+    // Text search
+    if (depSearch.trim()) {
+      const q = depSearch.toLowerCase();
+      list = list.filter((ev) => ev.name.toLowerCase().includes(q));
+    }
+    // Visible filter
+    if (depFilterMode === "visible" && filterState) {
+      const { tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode } = filterState;
+      if (tagFilterIds.length > 0) {
+        list = list.filter((ev) => {
+          const ids = ev.tags.map((t) => t.id);
+          return tagFilterMode === "and"
+            ? tagFilterIds.every((id) => ids.includes(id))
+            : tagFilterIds.some((id) => ids.includes(id));
+        });
+      }
+      if (textSearchQuery.trim()) {
+        const q = textSearchQuery.toLowerCase();
+        list = list.filter((ev) => {
+          const nameMatch = ev.name.toLowerCase().includes(q);
+          if (textSearchMode === "name") return nameMatch;
+          return nameMatch || (ev.notes ?? "").toLowerCase().includes(q);
+        });
+      }
+    }
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [allEvents.data, eventId, event?.dependencies, depSearch, depFilterMode, filterState]);
+
+  const [pendingDepEventId, setPendingDepEventId] = useState<number | null>(null);
+  const [pendingDepType, setPendingDepType] = useState<DependencyType>("influences");
+
   // --- Add pending doc (create mode) ---
   const addPendingDoc = () => {
     if (!newDocUrl.trim() || !newDocDescription.trim()) return;
@@ -370,6 +452,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
       side="right"
       onOpenChange={(o) => !o && handleClose()}
       title={mode === "create" ? "Новое событие" : "Редактирование"}
+      className="w-[684px]"
       footer={
         <div className="flex items-center gap-2">
           <TooltipButton
@@ -426,6 +509,26 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
           >
             Приложения{docs.length > 0 ? ` (${docs.length})` : ""}
           </button>
+          <button
+            className={`px-3 py-2 text-sm font-medium ${
+              activeTab === "description"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+            onClick={() => setActiveTab("description")}
+          >
+            Описание
+          </button>
+          <button
+            className={`px-3 py-2 text-sm font-medium ${
+              activeTab === "dependencies"
+                ? "border-b-2 border-blue-600 text-blue-600"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+            onClick={() => setActiveTab("dependencies")}
+          >
+            Связи{event?.dependencies && event.dependencies.length > 0 ? ` (${event.dependencies.length})` : ""}
+          </button>
         </div>
       )}
 
@@ -454,10 +557,27 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
               />
             </div>
           </div>
-          <label className="block text-sm">
-            Описание
-            <textarea className="mt-1 w-full rounded border px-2 py-1" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </label>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span>Описание</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); downloadMd(notes, name); }}
+                disabled={!notes.trim()}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                title="Экспорт .md"
+              >
+                <Download size={12} />
+                .md
+              </button>
+            </div>
+            <MarkdownEditor
+              value={notes}
+              onChange={setNotes}
+              className="mt-1"
+              maxH="140px"
+            />
+          </div>
 
           <fieldset>
             <legend className="text-sm font-medium">Шкалы</legend>
@@ -579,6 +699,26 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
             </div>
           )}
         </div>
+      ) : mode === "edit" && activeTab === "description" ? (
+        /* === EDIT MODE - DESCRIPTION TAB === */
+        <div className="flex h-full flex-col">
+          <MarkdownEditor
+            value={notes}
+            onChange={setNotes}
+            className="flex-1 min-h-0"
+          />
+          <div className="mt-2 flex justify-end">
+            <button
+              type="button"
+              onClick={() => downloadMd(notes, name)}
+              disabled={!notes.trim()}
+              className="flex items-center gap-1 rounded border px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+            >
+              <Download size={14} />
+              Экспорт .md
+            </button>
+          </div>
+        </div>
       ) : mode === "create" ? (
         /* === CREATE MODE (no tabs) === */
         <div className="space-y-3">
@@ -604,10 +744,27 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
               />
             </div>
           </div>
-          <label className="block text-sm">
-            Описание
-            <textarea className="mt-1 w-full rounded border px-2 py-1" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
-          </label>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-sm">
+              <span>Описание</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); downloadMd(notes, name); }}
+                disabled={!notes.trim()}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                title="Экспорт .md"
+              >
+                <Download size={12} />
+                .md
+              </button>
+            </div>
+            <MarkdownEditor
+              value={notes}
+              onChange={setNotes}
+              className="mt-1"
+              maxH="100px"
+            />
+          </div>
 
           <fieldset>
             <legend className="text-sm font-medium">Шкалы</legend>
@@ -712,6 +869,116 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
           <div>
             <p className="mb-1 text-xs font-medium text-slate-500">Приложенные файлы</p>
             {docListSection}
+          </div>
+        </div>
+      ) : mode === "edit" && activeTab === "dependencies" ? (
+        /* === EDIT MODE - DEPENDENCIES TAB === */
+        <div className="space-y-3">
+          {/* Existing dependencies */}
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-500">Существующие связи</p>
+            {event?.dependencies && event.dependencies.length > 0 ? (
+              <div className="space-y-1">
+                {event.dependencies.map((dep) => (
+                  <div key={dep.depEventId} className="flex items-center gap-2 rounded border border-slate-200 px-2 py-1.5">
+                    <Link2 size={14} className="shrink-0 text-slate-400" />
+                    <span className="min-w-0 flex-1 truncate text-sm">{dep.depEventName ?? dep.depEventId}</span>
+                    <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
+                      {dep.dependencyType === "part_of" ? "часть" : "влияет"}
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs text-red-500 hover:text-red-700"
+                      title="Удалить связь"
+                      onClick={() => removeDepMut.mutate(dep.depEventId)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400">Нет связей</p>
+            )}
+          </div>
+
+          {/* Add dependency */}
+          <div>
+            <p className="mb-2 text-xs font-medium text-slate-500">Добавить связь</p>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 rounded border px-2 py-1 text-sm"
+                placeholder="Поиск события…"
+                value={depSearch}
+                onChange={(e) => setDepSearch(e.target.value)}
+              />
+              {filterState && (
+                <button
+                  type="button"
+                  className={`shrink-0 rounded border px-2 py-1 text-xs ${
+                    depFilterMode === "visible"
+                      ? "border-blue-500 bg-blue-50 text-blue-600"
+                      : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                  }`}
+                  onClick={() => setDepFilterMode(depFilterMode === "visible" ? "all" : "visible")}
+                >
+                  На экране
+                </button>
+              )}
+            </div>
+
+            {filteredDepEvents.length > 0 && (
+              <div className="mt-2 max-h-60 overflow-y-auto rounded border border-slate-200">
+                {filteredDepEvents.map((ev) => (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    className={`flex w-full items-center gap-2 border-b border-slate-100 px-2 py-1.5 text-left text-sm last:border-0 hover:bg-blue-50 ${
+                      pendingDepEventId === ev.id ? "bg-blue-50" : ""
+                    }`}
+                    onClick={() => {
+                      setPendingDepEventId(ev.id);
+                    }}
+                  >
+                    <span className="flex-1 truncate">{ev.name}</span>
+                    <span className="shrink-0 text-xs text-slate-400">{formatDisplay(ev.startDate)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {pendingDepEventId !== null && (
+              <div className="mt-2 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 p-2">
+                <span className="text-xs text-slate-600">Тип связи:</span>
+                <select
+                  className="rounded border px-2 py-1 text-xs"
+                  value={pendingDepType}
+                  onChange={(e) => setPendingDepType(e.target.value as DependencyType)}
+                >
+                  <option value="influences">Влияет на</option>
+                  <option value="part_of">Является частью</option>
+                </select>
+                <TooltipButton
+                  label="Добавить"
+                  onClick={() => {
+                    addDepMut.mutate({ depEventId: pendingDepEventId, dependencyType: pendingDepType });
+                    setPendingDepEventId(null);
+                    setDepSearch("");
+                  }}
+                  disabled={addDepMut.isPending}
+                  className="ml-auto rounded bg-blue-600 px-3 py-1 text-xs text-white disabled:opacity-50"
+                >
+                  <Plus size={14} />
+                </TooltipButton>
+                <button
+                  type="button"
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                  onClick={() => setPendingDepEventId(null)}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : (
