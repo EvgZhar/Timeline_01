@@ -14,6 +14,7 @@ import { oauthRouter } from "./routes/oauth.js";
 import { documentsRouter } from "./routes/documents.js";
 import { eventsRouter } from "./routes/events.js";
 import { importExportRouter } from "./routes/importExport.js";
+import { pdfRouter } from "./routes/pdf.js";
 import { settingsRouter } from "./routes/settings.js";
 import { tagsRouter } from "./routes/tags.js";
 import { timelinesRouter } from "./routes/timelines.js";
@@ -51,6 +52,7 @@ app.use("/api/events", eventsRouter);
 app.use("/api/tags", tagsRouter);
 app.use("/api/documents", documentsRouter);
 app.use("/api/import-export", importExportRouter);
+app.use("/api/pdf", pdfRouter);
 app.use("/api/settings", settingsRouter);
 
 app.use(errorHandler);

@@ -9,7 +9,6 @@ import { ProfileSheet } from "./features/profile/ProfileSheet";
 import { TimelinesSheet } from "./features/timelines/TimelinesSheet";
 import { TimelineCanvas } from "./features/timeline/TimelineCanvas";
 import { TagSearch } from "./features/tags/TagSearch";
-import { exportTimelineToPdf } from "@/lib/pdfExport";
 import { FilterBar } from "./features/tags/FilterBar";
 import { useAuth } from "./auth/AuthContext";
 import type { EventDto, TimelineDto } from "@timeline/shared";
@@ -259,12 +258,10 @@ export function TimelineApp() {
   }, [highlightDependencies]);
 
   const handleExportPdf = useCallback(async () => {
-    const container = document.querySelector<HTMLElement>('[data-pdf-export="timeline-canvas"]');
-    if (!container) return;
     const events = qc.getQueryData<EventDto[]>(["events"]) ?? [];
     const tls = qc.getQueryData<TimelineDto[]>(["timelines"]) ?? [];
     const visibleIds = tls.filter((t) => t.visible).map((t) => t.id);
-    await exportTimelineToPdf(container, events, tls, visibleIds);
+    await api.pdfExport.exportPdf(events, tls, visibleIds);
   }, [qc]);
 
   // Clear all saved UI settings

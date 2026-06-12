@@ -202,6 +202,50 @@ export const api = {
         body: JSON.stringify({ settings }),
       }),
   },
+  pdfExport: {
+    exportPdf: async (
+      events: unknown[],
+      timelines: unknown[],
+      visibleTimelineIds: number[],
+    ) => {
+      const res = await fetch("/api/pdf/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ events, timelines, visibleTimelineIds }),
+      });
+      if (res.status === 401) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          const retryRes = await fetch("/api/pdf/export", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ events, timelines, visibleTimelineIds }),
+          });
+          if (!retryRes.ok) throw new Error("Ошибка экспорта PDF");
+          const blob = await retryRes.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `timeline-export-${Date.now()}.pdf`;
+          a.click();
+          URL.revokeObjectURL(url);
+          return;
+        }
+        dispatchAuthExpired();
+        throw new Error("Сессия истекла");
+      }
+      if (!res.ok) throw new Error("Ошибка экспорта PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `timeline-export-${Date.now()}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+  },
   importExport: {
     exportXlsx: async (filters?: {
       tagFilterIds?: number[];
