@@ -316,7 +316,31 @@ export function TimelineApp() {
       timelineSvg = new XMLSerializer().serializeToString(clone);
     }
 
-    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineSvg);
+    const titleMeta: {
+      timelines?: string[];
+      filters?: string;
+      dateRange?: string;
+    } = {};
+    const visibleNames = tls.filter((t) => t.visible).map((t) => t.name);
+    if (visibleNames.length > 0) titleMeta.timelines = visibleNames;
+    if (viewRange) {
+      const fmt = (ms: number) => { const d = new Date(ms); return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`; };
+      titleMeta.dateRange = `${fmt(viewRange.startMs)} – ${fmt(viewRange.endMs)}`;
+    }
+    const filterParts: string[] = [];
+    if (tagFilterIds.length > 0) {
+      const tagNames = events.flatMap((ev) => ev.tags).filter((t, i, a) => a.findIndex((x) => x.id === t.id) === i).filter((t) => tagFilterIds.includes(t.id)).map((t) => t.name);
+      filterParts.push(`Теги (${tagFilterMode === "and" ? "И" : "ИЛИ"}): ${tagNames.join(", ")}`);
+    }
+    if (textSearchQuery.trim()) {
+      filterParts.push(`Поиск: "${textSearchQuery}"`);
+    }
+    if (filterParts.length > 0) titleMeta.filters = filterParts.join("; ");
+    else if (tagFilterIds.length === 0 && !textSearchQuery.trim() && viewRange) {
+      titleMeta.filters = "Без фильтров";
+    }
+
+    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineSvg, titleMeta);
   }, [qc, viewRange, tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode]);
 
   // Clear all saved UI settings

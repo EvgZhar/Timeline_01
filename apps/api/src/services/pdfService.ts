@@ -51,6 +51,7 @@ function buildHtml(
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
   timelineSvg?: string,
+  titleMeta?: { timelines?: string[]; filters?: string; dateRange?: string },
 ): string {
   const visibleTls = timelines.filter((t) => visibleTimelineIds.includes(t.id));
 
@@ -229,6 +230,24 @@ function buildHtml(
     color: #2266aa;
     text-decoration: underline;
   }
+  .meta-table {
+    margin: 5mm auto 20mm;
+    max-width: 120mm;
+  }
+  .meta-table td {
+    padding: 1.5mm 3mm;
+    font-size: 11pt;
+    vertical-align: top;
+  }
+  .meta-table td:first-child {
+    font-weight: bold;
+    color: #1e3a5f;
+    white-space: nowrap;
+    width: 1%;
+  }
+  .meta-table td:last-child {
+    color: #333;
+  }
   .footer {
     text-align: center;
     font-size: 9pt;
@@ -240,6 +259,7 @@ function buildHtml(
 <body>
   <div class="title">Хронология событий</div>
   <div class="subtitle">Экспорт из pretty-timeline.ru</div>
+  ${titleMeta ? `<table class="meta-table">${titleMeta.timelines?.length ? `<tr><td>Таймлайны</td><td>${titleMeta.timelines.map(escapeHtml).join(", ")}</td></tr>` : ""}${titleMeta.dateRange ? `<tr><td>Период</td><td>${escapeHtml(titleMeta.dateRange)}</td></tr>` : ""}${titleMeta.filters ? `<tr><td>Фильтры</td><td>${escapeHtml(titleMeta.filters)}</td></tr>` : ""}</table>` : ""}
   ${timelineHtml ? "" : '<div class="page-break"></div>'}
   ${timelineHtml}
   ${eventsHtml}
@@ -254,8 +274,9 @@ export async function generatePdf(
   visibleTimelineIds: number[],
   timelineSvg?: string,
   cookies?: { name: string; value: string }[],
+  titleMeta?: { timelines?: string[]; filters?: string; dateRange?: string },
 ): Promise<Buffer> {
-  const html = buildHtml(events, timelines, visibleTimelineIds, timelineSvg);
+  const html = buildHtml(events, timelines, visibleTimelineIds, timelineSvg, titleMeta);
 
   const browser = await puppeteer.launch({
     headless: true,
