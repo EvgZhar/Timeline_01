@@ -38,6 +38,7 @@ const loginLimiter = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { error: "Слишком много запросов, попробуйте позже" },
 });
 
@@ -46,6 +47,7 @@ const refreshLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false },
   message: { error: "Слишком много запросов, попробуйте позже" },
 });
 
