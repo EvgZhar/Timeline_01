@@ -300,6 +300,9 @@ export function TimelineApp() {
         const href = imgEl.getAttribute("href") || imgEl.getAttributeNS("http://www.w3.org/1999/xlink", "href");
         if (href && !href.startsWith("data:")) {
           try {
+            if (new URL(href).origin !== location.origin) continue;
+          } catch { continue; }
+          try {
             const r = await fetch(href, { credentials: "same-origin" });
             if (r.ok) {
               const blob = await r.blob();

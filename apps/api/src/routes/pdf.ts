@@ -13,12 +13,13 @@ pdfRouter.post("/export", authenticate, async (req, res, next) => {
       return;
     }
 
-    const cookies: { name: string; value: string }[] = [];
+    const domain = req.hostname;
+    const cookies: { name: string; value: string; domain: string }[] = [];
     if (req.cookies?.accessToken) {
-      cookies.push({ name: "accessToken", value: req.cookies.accessToken });
+      cookies.push({ name: "accessToken", value: req.cookies.accessToken, domain });
     }
     if (req.cookies?.refreshToken) {
-      cookies.push({ name: "refreshToken", value: req.cookies.refreshToken });
+      cookies.push({ name: "refreshToken", value: req.cookies.refreshToken, domain });
     }
 
     const pdfBuffer = await generatePdf(

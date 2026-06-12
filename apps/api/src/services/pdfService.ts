@@ -273,7 +273,7 @@ export async function generatePdf(
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
   timelineSvg?: string,
-  cookies?: { name: string; value: string }[],
+  cookies?: { name: string; value: string; domain: string }[],
   titleMeta?: { timelines?: string[]; filters?: string; dateRange?: string },
 ): Promise<Buffer> {
   const html = buildHtml(events, timelines, visibleTimelineIds, timelineSvg, titleMeta);
