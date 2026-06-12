@@ -18,6 +18,7 @@ import { tagsRouter } from "./routes/tags.js";
 import { timelinesRouter } from "./routes/timelines.js";
 
 const app = express();
+app.set("trust proxy", 1);
 const port = Number(process.env.PORT) || 3001;
 
 // Persist JWT secret across restarts
