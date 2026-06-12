@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer";
 
 interface EventDocDto {
-  id: number;
+  documentId: number;
   description: string;
   originalLink: string | null;
   previewUrl: string | null;
@@ -51,16 +51,18 @@ function buildHtml(
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
   timelineImage?: string,
+  documentImages?: Record<number, string>,
 ): string {
   const visibleTls = timelines.filter((t) => visibleTimelineIds.includes(t.id));
 
   let timelineHtml = "";
   if (timelineImage) {
     timelineHtml = `
+  <div class="landscape">
     <div class="timeline-image-container">
       <img src="${escapeHtml(timelineImage)}" alt="Таймлайн" />
     </div>
-    <div class="page-break"></div>`;
+  </div>`;
   }
 
   let eventsHtml = "";
@@ -108,11 +110,15 @@ function buildHtml(
 
       let docsHtml = "";
       for (const doc of ev.documents) {
-        const link = doc.originalLink ?? doc.previewUrl ?? "";
-        if (link) {
-          docsHtml += `<div class="event-doc"><a href="${escapeHtml(link)}">${escapeHtml(doc.description)}</a></div>`;
+        if (doc.resourceType === "image" && documentImages?.[doc.documentId]) {
+          docsHtml += `<div class="event-doc-img"><img src="${documentImages[doc.documentId]}" alt="${escapeHtml(doc.description)}" /><div class="event-doc-label">${escapeHtml(doc.description)}</div></div>`;
         } else {
-          docsHtml += `<div class="event-doc">${escapeHtml(doc.description)}</div>`;
+          const link = doc.originalLink ?? doc.previewUrl ?? "";
+          if (link) {
+            docsHtml += `<div class="event-doc"><a href="${escapeHtml(link)}">${escapeHtml(doc.description)}</a></div>`;
+          } else {
+            docsHtml += `<div class="event-doc">${escapeHtml(doc.description)}</div>`;
+          }
         }
       }
 
@@ -134,7 +140,9 @@ function buildHtml(
 <head>
 <meta charset="UTF-8">
 <style>
-  @page { margin: 20mm 15mm; }
+  @page landscape { size: landscape; margin: 15mm; }
+  @page portrait { size: portrait; margin: 20mm 15mm; }
+  @page { size: portrait; margin: 20mm 15mm; }
   * { box-sizing: border-box; }
   body {
     font-family: Helvetica, Arial, sans-serif;
@@ -144,6 +152,7 @@ function buildHtml(
     margin: 0;
     padding: 0;
   }
+  .landscape { page: landscape; page-break-before: always; }
   .title {
     font-size: 24pt;
     font-weight: bold;
@@ -162,7 +171,7 @@ function buildHtml(
     width: 100%;
     text-align: center;
     page-break-inside: avoid;
-    margin: 10mm 0;
+    margin: 5mm 0;
   }
   .timeline-image-container img {
     max-width: 100%;
@@ -226,6 +235,22 @@ function buildHtml(
     color: #2266aa;
     text-decoration: underline;
   }
+  .event-doc-img {
+    margin-top: 1mm;
+    page-break-inside: avoid;
+  }
+  .event-doc-img img {
+    max-width: 100%;
+    max-height: 60mm;
+    display: block;
+    border: 1px solid #ddd;
+    border-radius: 1mm;
+  }
+  .event-doc-label {
+    font-size: 8pt;
+    color: #666;
+    margin-top: 0.5mm;
+  }
   .footer {
     text-align: center;
     font-size: 9pt;
@@ -250,8 +275,9 @@ export async function generatePdf(
   timelines: TimelineDto[],
   visibleTimelineIds: number[],
   timelineImage?: string,
+  documentImages?: Record<number, string>,
 ): Promise<Buffer> {
-  const html = buildHtml(events, timelines, visibleTimelineIds, timelineImage);
+  const html = buildHtml(events, timelines, visibleTimelineIds, timelineImage, documentImages);
 
   const browser = await puppeteer.launch({
     headless: true,

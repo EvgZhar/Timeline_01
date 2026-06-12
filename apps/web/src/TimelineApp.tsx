@@ -288,12 +288,58 @@ export function TimelineApp() {
         return nameMatch || (ev.notes ?? "").toLowerCase().includes(q);
       });
     }
+
+    // Helper to fetch image → data URL
+    const fetchAsDataUrl = async (url: string): Promise<string | null> => {
+      try {
+        const r = await fetch(url, { credentials: "include" });
+        if (!r.ok) return null;
+        const blob = await r.blob();
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch {
+        return null;
+      }
+    };
+
+    // Pre-fetch document images
+    const documentImages: Record<number, string> = {};
+    let imgCount = 0;
+    for (const ev of events) {
+      if (imgCount >= 20) break;
+      let perEvent = 0;
+      for (const doc of ev.documents) {
+        if (perEvent >= 3 || imgCount >= 20) break;
+        if (doc.resourceType === "image" && doc.previewUrl && !documentImages[doc.documentId]) {
+          const dataUrl = await fetchAsDataUrl(doc.previewUrl);
+          if (dataUrl) {
+            documentImages[doc.documentId] = dataUrl;
+            imgCount++;
+            perEvent++;
+          }
+        }
+      }
+    }
+
+    // Timeline screenshot
     let timelineImage: string | undefined;
     const container = document.querySelector<HTMLElement>('[data-pdf-export="timeline-canvas"]');
     const svgEl = container?.querySelector("svg");
     if (svgEl) {
       const rect = svgEl.getBoundingClientRect();
       const clone = svgEl.cloneNode(true) as SVGSVGElement;
+      // Inline external images in SVG (timeline icons)
+      const imageEls = Array.from(clone.querySelectorAll("image"));
+      for (const imgEl of imageEls) {
+        const href = imgEl.getAttribute("href") || imgEl.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+        if (href && !href.startsWith("data:")) {
+          const dataUrl = await fetchAsDataUrl(href);
+          if (dataUrl) imgEl.setAttribute("href", dataUrl);
+        }
+      }
       clone.querySelectorAll("foreignObject").forEach((fo) => fo.remove());
       clone.setAttribute("width", String(rect.width));
       clone.setAttribute("height", String(rect.height));
@@ -321,7 +367,8 @@ export function TimelineApp() {
         URL.revokeObjectURL(url);
       }
     }
-    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineImage);
+
+    await api.pdfExport.exportPdf(events, tls, visibleIds, timelineImage, documentImages);
   }, [qc, viewRange, tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode]);
 
   // Clear all saved UI settings
