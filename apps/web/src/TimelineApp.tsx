@@ -50,15 +50,31 @@ export function TimelineApp() {
   const startX2Ref = useRef(0);
   const startWidth2Ref = useRef(0);
 
-  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleDividerPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     isDraggingRef.current = true;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   }, []);
 
-  const handleDocDividerMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleDividerPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingRef.current || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const pct = ((e.clientX - rect.left) / rect.width) * 100;
+    setGridWidth(Math.min(Math.max(pct, 15), 60));
+  }, []);
+
+  const handleDividerPointerUp = useCallback(() => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  }, []);
+
+  const handleDocDividerPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     isDragging2Ref.current = true;
     startX2Ref.current = e.clientX;
     startWidth2Ref.current = docColWidth;
@@ -66,46 +82,18 @@ export function TimelineApp() {
     document.body.style.userSelect = "none";
   }, [docColWidth]);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const pct = ((e.clientX - rect.left) / rect.width) * 100;
-      setGridWidth(Math.min(Math.max(pct, 15), 60));
-    };
-    const handleMouseUp = () => {
-      if (!isDraggingRef.current) return;
-      isDraggingRef.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
+  const handleDocDividerPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging2Ref.current) return;
+    const dx = e.clientX - startX2Ref.current;
+    const newWidth = startWidth2Ref.current - dx;
+    setDocColWidth(Math.min(Math.max(newWidth, 200), 500));
   }, []);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging2Ref.current) return;
-      const dx = e.clientX - startX2Ref.current;
-      const newWidth = startWidth2Ref.current - dx;
-      setDocColWidth(Math.min(Math.max(newWidth, 200), 500));
-    };
-    const handleMouseUp = () => {
-      if (!isDragging2Ref.current) return;
-      isDragging2Ref.current = false;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
+  const handleDocDividerPointerUp = useCallback(() => {
+    if (!isDragging2Ref.current) return;
+    isDragging2Ref.current = false;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
   }, []);
 
   const { data: settings } = useQuery({
@@ -373,7 +361,7 @@ export function TimelineApp() {
   };
 
   return (
-    <div className="flex h-screen min-w-[1024px] flex-col">
+    <div className="flex h-screen flex-col">
       <TopBar
         onTimelines={() => setTimelinesOpen(true)}
         onAddEvent={() => setEventSheet({ mode: "create" })}
@@ -435,8 +423,10 @@ export function TimelineApp() {
             />
           </div>
           <div
-            className="w-1.5 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-blue-400 active:bg-blue-500"
-            onMouseDown={handleDividerMouseDown}
+            className="w-1.5 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-blue-400 active:bg-blue-500 touch-none"
+            onPointerDown={handleDividerPointerDown}
+            onPointerMove={handleDividerPointerMove}
+            onPointerUp={handleDividerPointerUp}
           />
           <div className="flex min-w-0 flex-1 overflow-hidden">
             {selectedEventId ? (
@@ -451,8 +441,10 @@ export function TimelineApp() {
             )}
           </div>
           <div
-            className="w-1.5 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-blue-400 active:bg-blue-500"
-            onMouseDown={handleDocDividerMouseDown}
+            className="w-1.5 shrink-0 cursor-col-resize bg-slate-200 transition-colors hover:bg-blue-400 active:bg-blue-500 touch-none"
+            onPointerDown={handleDocDividerPointerDown}
+            onPointerMove={handleDocDividerPointerMove}
+            onPointerUp={handleDocDividerPointerUp}
           />
           <div style={{ width: docColWidth }} className="shrink-0 overflow-hidden border-l border-slate-200">
             {selectedEventId ? (

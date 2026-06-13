@@ -40,7 +40,7 @@ function ToolbarButton({
     <button
       type="button"
       title={title}
-      onMouseDown={(e) => { e.preventDefault(); onClick(); }}
+      onPointerDown={(e) => { e.preventDefault(); onClick(); }}
       className={cn(
         "rounded p-1 hover:bg-slate-100",
         active ? "bg-slate-200 text-blue-600" : "text-slate-600",

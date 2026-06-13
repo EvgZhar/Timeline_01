@@ -355,7 +355,7 @@ export function EventDetailPanel({ eventId }: EventDetailPanelProps) {
                               borderColor: `#${hex}`,
                               color: "#1e293b",
                             }}
-                            onMouseDown={(e) => { e.preventDefault(); toggleTag(t.id); }}
+                            onPointerDown={(e) => { e.preventDefault(); toggleTag(t.id); }}
                           >
                             {t.previewUrl ? (
                               <img src={t.previewUrl} alt="" className="h-4 w-4 shrink-0 rounded object-cover" />

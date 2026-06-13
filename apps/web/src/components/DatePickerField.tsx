@@ -56,8 +56,8 @@ export function DatePickerField({ label, value, onChange, placeholder }: DatePic
         setOpen(false);
       }
     };
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    document.addEventListener("pointerdown", onClick);
+    return () => document.removeEventListener("pointerdown", onClick);
   }, [open]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -49,10 +49,13 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
+  const [activeEventId, setActiveEventId] = useState<number | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ x: number; range: ViewRange } | null>(null);
   const wasDraggedRef = useRef(false);
+  const isTouchRef = useRef(false);
+  const pinchRef = useRef<{ dist: number; spanMs: number; centerMs: number } | null>(null);
 
   const { data: timelines = [] } = useQuery({
     queryKey: ["timelines"],
@@ -172,14 +175,16 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
       data-pdf-export="timeline-canvas"
       style={{
         cursor: isDragging ? "grabbing" : "grab",
+        touchAction: "none",
       }}
       onWheel={onWheel}
-      onMouseDown={(e) => {
+      onPointerDown={(e) => {
+        isTouchRef.current ||= e.pointerType === "touch";
         dragRef.current = { x: e.clientX, range: { ...effectiveRange } };
         setIsDragging(true);
         wasDraggedRef.current = false;
       }}
-      onMouseMove={(e) => {
+      onPointerMove={(e) => {
         if (!dragRef.current) return;
         const dx = e.clientX - dragRef.current.x;
         if (Math.abs(dx) > 5) wasDraggedRef.current = true;
@@ -190,16 +195,52 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           endMs: dragRef.current.range.endMs - dx * msPerPx,
         });
       }}
-      onMouseUp={() => {
+      onPointerUp={() => {
         dragRef.current = null;
         setIsDragging(false);
       }}
-      onMouseLeave={() => {
+      onPointerLeave={() => {
         dragRef.current = null;
         setIsDragging(false);
+        pinchRef.current = null;
+      }}
+      onTouchStart={(e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          isTouchRef.current = true;
+          const t1 = e.touches[0], t2 = e.touches[1];
+          const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+          const cx = (t1.clientX + t2.clientX) / 2;
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (!rect) return;
+          const innerX = cx - rect.left - padding.left;
+          const ms = timeForX(innerX, effectiveRange, innerW);
+          const spanMs = effectiveRange.endMs - effectiveRange.startMs;
+          pinchRef.current = { dist, spanMs, centerMs: ms };
+        }
+      }}
+      onTouchMove={(e) => {
+        if (e.touches.length === 2 && pinchRef.current) {
+          e.preventDefault();
+          const t1 = e.touches[0], t2 = e.touches[1];
+          const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+          const scale = dist / pinchRef.current.dist;
+          const { centerMs } = pinchRef.current;
+          const spanMs = effectiveRange.endMs - effectiveRange.startMs;
+          const newSpanMs = Math.max(spanMs / scale, 30 * 24 * 60 * 60 * 1000);
+          setRange({
+            startMs: centerMs - (centerMs - effectiveRange.startMs) * (newSpanMs / spanMs),
+            endMs: centerMs + (effectiveRange.endMs - centerMs) * (newSpanMs / spanMs),
+          });
+          pinchRef.current.dist = dist;
+        }
+      }}
+      onTouchEnd={() => {
+        pinchRef.current = null;
       }}
       onClick={(e) => {
         if (wasDraggedRef.current) return;
+        if (activeEventId) { setActiveEventId(null); return; }
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
         const xRel = e.clientX - rect.left;
@@ -362,8 +403,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                   padding.left +
                   xForTime(toDate(ev.endDate).getTime(), effectiveRange, innerW);
                 const isPoint = ev.startDate === ev.endDate;
-                const isHover = hovered === ev.id;
-                const isConnected = highlightDependencies && hovered !== null && !isHover && connectedEventIds.has(ev.id);
+                const isHover = hovered === ev.id || activeEventId === ev.id;
+                const isConnected = highlightDependencies && (hovered !== null || activeEventId !== null) && !isHover && connectedEventIds.has(ev.id);
                 const isThick = thicknessMap.get(ev.id) === "thick";
                 const labelX = isPoint ? x1 : (x1 + x2) / 2;
                 const label = labels.find((l) => l.id === ev.id);
@@ -416,6 +457,12 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                             hoverTimeoutRef.current = setTimeout(() => {
                               setHovered(null);
                             }, 150);
+                          }}
+                          onPointerDown={(e) => {
+                            if (e.pointerType === "touch") {
+                              e.stopPropagation();
+                              setActiveEventId(prev => prev === ev.id ? null : ev.id);
+                            }
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -476,6 +523,12 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                               setHovered(null);
                             }, 150);
                           }}
+                          onPointerDown={(e) => {
+                            if (e.pointerType === "touch") {
+                              e.stopPropagation();
+                              setActiveEventId(prev => prev === ev.id ? null : ev.id);
+                            }
+                          }}
                           onClick={(e) => {
                             e.stopPropagation();
                             onEventClick(ev.id);
@@ -519,8 +572,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           );
         })}
         {/* Connection curves */}
-        {hovered !== null && (() => {
-          const ev = events.find((e) => e.id === hovered);
+        {(hovered !== null || activeEventId !== null) && (() => {
+          const evId = hovered ?? activeEventId;
+          const ev = events.find((e) => e.id === evId);
           if (!ev) return null;
 
           const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
@@ -558,8 +612,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
             </g>
           );
         })()}
-        {hovered !== null && (() => {
-          const ev = events.find((e) => e.id === hovered);
+        {(hovered !== null || activeEventId !== null) && (() => {
+          const evId = hovered ?? activeEventId;
+          const ev = events.find((e) => e.id === evId);
           if (!ev) return null;
 
           const previewDoc = ev.documents.find((d) => d.isPrimary && d.resourceType === "image");

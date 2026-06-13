@@ -14,6 +14,8 @@ body {
   font-family: var(--font-sans);
   background: #f8fafc;
   color: #0f172a;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .ProseMirror {
@@ -93,6 +95,17 @@ body {
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+@media (hover: hover) {
+  .hover-only {
+    display: revert;
+  }
+}
+@media (hover: none) {
+  .hover-only {
+    display: none;
+  }
 }
 
 @keyframes tooltip-in {

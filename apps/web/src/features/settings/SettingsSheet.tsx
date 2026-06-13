@@ -183,7 +183,6 @@ export function SettingsSheet({
   const [editName, setEditName] = useState("");
   const [editHex, setEditHex] = useState("#3b82f6");
   const [editPreviewUrl, setEditPreviewUrl] = useState("");
-  const [hoveredTagId, setHoveredTagId] = useState<number | null>(null);
   const colorRef = useRef<HTMLInputElement>(null);
 
   const createTagMut = useMutation({
@@ -454,8 +453,6 @@ export function SettingsSheet({
                 <div
                   key={tag.id}
                   className="flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-                  onMouseEnter={() => setHoveredTagId(tag.id)}
-                  onMouseLeave={() => setHoveredTagId(null)}
                 >
                   <div
                     className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded bg-slate-100"
@@ -468,7 +465,7 @@ export function SettingsSheet({
                     )}
                   </div>
                   <span className="flex-1 text-sm font-medium">{tag.name}</span>
-                  <div className={hoveredTagId === tag.id ? "flex items-center gap-1" : "hidden items-center gap-1"}>
+                  <div className="flex items-center gap-1">
                     <TooltipButton
                       label="Редактировать"
                       onClick={() => startTagEdit(tag)}

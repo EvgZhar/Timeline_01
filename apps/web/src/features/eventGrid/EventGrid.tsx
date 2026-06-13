@@ -90,45 +90,39 @@ export function EventGrid({
   const resizingCol = useRef<"name" | "date" | "end" | "deps" | null>(null);
   const tableRef = useRef<HTMLTableElement>(null);
 
-  const handleColResizeStart = useCallback((col: "name" | "date" | "end" | "deps") => (e: React.MouseEvent) => {
+  const handleColResizePointerDown = useCallback((col: "name" | "date" | "end" | "deps") => (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     resizingCol.current = col;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
   }, []);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      const col = resizingCol.current;
-      if (!col || !tableRef.current) return;
-      const rect = tableRef.current.getBoundingClientRect();
-      const relX = e.clientX - rect.left;
-      const pct = (relX / rect.width) * 100;
-      setColWidths((prev) => {
-        let name = prev.name || 38;
-        let date = prev.date || 16;
-        let end = prev.end || 16;
-        let deps = prev.deps || 0;
-        if (col === "name") name = Math.max(20, Math.min(66, pct));
-        else if (col === "date") date = Math.max(10, Math.min(46, pct - name));
-        else if (col === "end") end = Math.max(10, Math.min(46, 100 - name - date));
-        else if (col === "deps") deps = Math.max(0, Math.min(20, 100 - name - date - end));
-        return { name, date, end, deps };
-      });
-    };
-    const handleMouseUp = () => {
-      if (!resizingCol.current) return;
-      resizingCol.current = null;
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
+  const handleColResizePointerMove = useCallback((e: React.PointerEvent) => {
+    const col = resizingCol.current;
+    if (!col || !tableRef.current) return;
+    const rect = tableRef.current.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    const pct = (relX / rect.width) * 100;
+    setColWidths((prev) => {
+      let name = prev.name || 38;
+      let date = prev.date || 16;
+      let end = prev.end || 16;
+      let deps = prev.deps || 0;
+      if (col === "name") name = Math.max(20, Math.min(66, pct));
+      else if (col === "date") date = Math.max(10, Math.min(46, pct - name));
+      else if (col === "end") end = Math.max(10, Math.min(46, 100 - name - date));
+      else if (col === "deps") deps = Math.max(0, Math.min(20, 100 - name - date - end));
+      return { name, date, end, deps };
+    });
+  }, []);
+
+  const handleColResizePointerUp = useCallback(() => {
+    if (!resizingCol.current) return;
+    resizingCol.current = null;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
   }, []);
 
   const toggleSort = (field: "name" | "startDate" | "endDate") => {
@@ -195,8 +189,10 @@ export function EventGrid({
                   )}
                 </span>
                 <div
-                  className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400 active:bg-blue-500"
-                  onMouseDown={handleColResizeStart("name")}
+                  className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400 active:bg-blue-500 touch-none"
+                  onPointerDown={handleColResizePointerDown("name")}
+                  onPointerMove={handleColResizePointerMove}
+                  onPointerUp={handleColResizePointerUp}
                 />
               </th>
               <th
@@ -210,8 +206,10 @@ export function EventGrid({
                   )}
                 </span>
                 <div
-                  className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400 active:bg-blue-500"
-                  onMouseDown={handleColResizeStart("date")}
+                  className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400 active:bg-blue-500 touch-none"
+                  onPointerDown={handleColResizePointerDown("date")}
+                  onPointerMove={handleColResizePointerMove}
+                  onPointerUp={handleColResizePointerUp}
                 />
               </th>
               <th
@@ -225,8 +223,10 @@ export function EventGrid({
                   )}
                 </span>
                 <div
-                  className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400 active:bg-blue-500"
-                  onMouseDown={handleColResizeStart("end")}
+                  className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400 active:bg-blue-500 touch-none"
+                  onPointerDown={handleColResizePointerDown("end")}
+                  onPointerMove={handleColResizePointerMove}
+                  onPointerUp={handleColResizePointerUp}
                 />
               </th>
               <th
@@ -236,8 +236,10 @@ export function EventGrid({
                   <Link2 size={12} />
                 </span>
                 <div
-                  className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400 active:bg-blue-500"
-                  onMouseDown={handleColResizeStart("deps")}
+                  className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-blue-400 active:bg-blue-500 touch-none"
+                  onPointerDown={handleColResizePointerDown("deps")}
+                  onPointerMove={handleColResizePointerMove}
+                  onPointerUp={handleColResizePointerUp}
                 />
               </th>
             </tr>
@@ -277,6 +279,11 @@ export function EventGrid({
                     className="px-2 py-1.5 text-center text-xs text-slate-400"
                     onMouseEnter={() => setDepHovered(ev.id)}
                     onMouseLeave={() => setDepHovered(null)}
+                    onPointerDown={(e) => {
+                      if (e.pointerType === "touch") {
+                        setDepHovered(prev => prev === ev.id ? null : ev.id);
+                      }
+                    }}
                   >
                     {(ev.dependencies?.length ?? 0) > 0 ? (
                       <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">
