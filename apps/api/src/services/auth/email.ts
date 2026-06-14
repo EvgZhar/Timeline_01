@@ -41,7 +41,7 @@ export function refreshTransporter(): void {
   fromAddress = "";
 }
 
-const BASE_URL = process.env.AUTH_CALLBACK_URL || "http://localhost:5173";
+const BASE_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
 export const emailService = {
   sendVerificationEmail: async (to: string, token: string) => {
