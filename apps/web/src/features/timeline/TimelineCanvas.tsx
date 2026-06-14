@@ -48,8 +48,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
-  const [hovered, setHovered] = useState<{ eventId: number; timelineId: number } | null>(null);
-  const [activeEventId, setActiveEventId] = useState<{ eventId: number; timelineId: number } | null>(null);
+  const [hovered, setHovered] = useState<{ eventId: number; timelineId: number; hitX: number } | null>(null);
+  const [activeEventId, setActiveEventId] = useState<{ eventId: number; timelineId: number; hitX: number } | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ x: number; range: ViewRange } | null>(null);
@@ -446,12 +446,14 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                           r={12}
                           fill="transparent"
                           style={{ cursor: "pointer" }}
-                          onMouseEnter={() => {
+                          onMouseEnter={(e) => {
                             if (hoverTimeoutRef.current) {
                               clearTimeout(hoverTimeoutRef.current);
                               hoverTimeoutRef.current = null;
                             }
-                            setHovered({ eventId: ev.id, timelineId: tl.id });
+                            const rect = containerRef.current!.getBoundingClientRect();
+                            const hitX = e.clientX - rect.left;
+                            setHovered({ eventId: ev.id, timelineId: tl.id, hitX });
                           }}
                           onMouseLeave={() => {
                             hoverTimeoutRef.current = setTimeout(() => {
@@ -461,8 +463,10 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                           onPointerDown={(e) => {
                             if (e.pointerType === "touch") {
                               e.stopPropagation();
+                              const rect = containerRef.current!.getBoundingClientRect();
+                              const hitX = e.clientX - rect.left;
                               setActiveEventId(prev =>
-                                prev?.eventId === ev.id && prev?.timelineId === tl.id ? null : { eventId: ev.id, timelineId: tl.id }
+                                prev?.eventId === ev.id && prev?.timelineId === tl.id ? null : { eventId: ev.id, timelineId: tl.id, hitX }
                               );
                             }
                           }}
@@ -513,12 +517,14 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                           height={14}
                           fill="transparent"
                           style={{ cursor: "pointer" }}
-                          onMouseEnter={() => {
+                          onMouseEnter={(e) => {
                             if (hoverTimeoutRef.current) {
                               clearTimeout(hoverTimeoutRef.current);
                               hoverTimeoutRef.current = null;
                             }
-                            setHovered({ eventId: ev.id, timelineId: tl.id });
+                            const rect = containerRef.current!.getBoundingClientRect();
+                            const hitX = e.clientX - rect.left;
+                            setHovered({ eventId: ev.id, timelineId: tl.id, hitX });
                           }}
                           onMouseLeave={() => {
                             hoverTimeoutRef.current = setTimeout(() => {
@@ -528,8 +534,10 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                           onPointerDown={(e) => {
                             if (e.pointerType === "touch") {
                               e.stopPropagation();
+                              const rect = containerRef.current!.getBoundingClientRect();
+                              const hitX = e.clientX - rect.left;
                               setActiveEventId(prev =>
-                                prev?.eventId === ev.id && prev?.timelineId === tl.id ? null : { eventId: ev.id, timelineId: tl.id }
+                                prev?.eventId === ev.id && prev?.timelineId === tl.id ? null : { eventId: ev.id, timelineId: tl.id, hitX }
                               );
                             }
                           }}
@@ -659,7 +667,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const notes = ev.notes ?? "";
           const hasTags = ev.tags.length > 0;
 
-          const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
+          const hitX = active.hitX;
           const laneIdx = visibleTimelines.findIndex((tl) => tl.id === active.timelineId);
           if (laneIdx < 0) return null;
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
@@ -668,9 +676,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const tooltipW = 345;
           const tooltipH = 230 + (hasTags ? 21 : 0);
           const workspaceMid = padding.left + innerW / 2;
-          const tooltipX = cx < workspaceMid
-            ? Math.max(padding.left + 4, cx + 100)
-            : Math.min(cx - tooltipW - 100, padding.left + innerW - tooltipW - 4);
+          const tooltipX = hitX < workspaceMid
+            ? Math.max(padding.left + 4, hitX + 100)
+            : Math.min(hitX - tooltipW - 100, padding.left + innerW - tooltipW - 4);
           const tooltipY = Math.min(
             Math.max(padding.top + 4, ly - tooltipH - 14),
             padding.top + laneIdx * (laneH + GAP) + laneH - tooltipH - 4,
@@ -699,7 +707,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     clearTimeout(hoverTimeoutRef.current);
                     hoverTimeoutRef.current = null;
                   }
-                  setHovered({ eventId: ev.id, timelineId: active.timelineId });
+                  setHovered({ eventId: ev.id, timelineId: active.timelineId, hitX: active.hitX });
                 }}
                 onMouseLeave={() => {
                   hoverTimeoutRef.current = setTimeout(() => {
