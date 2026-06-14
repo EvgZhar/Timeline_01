@@ -48,8 +48,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 1200, h: 600 });
   const [range, setRange] = useState<ViewRange | null>(null);
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [activeEventId, setActiveEventId] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<{ eventId: number; timelineId: number } | null>(null);
+  const [activeEventId, setActiveEventId] = useState<{ eventId: number; timelineId: number } | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ x: number; range: ViewRange } | null>(null);
@@ -68,12 +68,12 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
 
   const connectedEventIds = useMemo(() => {
     if (hovered === null || !highlightDependencies) return new Set<number>();
-    const hev = events.find((e) => e.id === hovered);
+    const hev = events.find((e) => e.id === hovered.eventId);
     if (!hev) return new Set<number>();
     const ids = new Set<number>();
     (hev.dependencies ?? []).forEach((d) => ids.add(d.depEventId));
     events.forEach((e) => {
-      if (e.dependencies?.some((d) => d.depEventId === hovered)) ids.add(e.id);
+      if (e.dependencies?.some((d) => d.depEventId === hovered.eventId)) ids.add(e.id);
     });
     return ids;
   }, [hovered, highlightDependencies, events]);
@@ -343,7 +343,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 y={y0}
                 width={innerW}
                 height={laneH}
-                fill={hovered && laneEvents.some((e) => e.id === hovered) ? "#eff6ff" : "#fafafa"}
+                fill={hovered && laneEvents.some((e) => e.id === hovered.eventId) ? "#eff6ff" : "#fafafa"}
                 stroke="#e2e8f0"
               />
               {li < visibleTimelines.length - 1 && (
@@ -404,7 +404,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                   padding.left +
                   xForTime(toDate(ev.endDate).getTime(), effectiveRange, innerW);
                 const isPoint = ev.startDate === ev.endDate;
-                const isHover = hovered === ev.id || activeEventId === ev.id;
+                const isHover = (hovered?.eventId === ev.id && hovered?.timelineId === tl.id) || (activeEventId?.eventId === ev.id && activeEventId?.timelineId === tl.id);
                 const isConnected = highlightDependencies && (hovered !== null || activeEventId !== null) && !isHover && connectedEventIds.has(ev.id);
                 const isThick = thicknessMap.get(ev.id) === "thick";
                 const labelX = isPoint ? x1 : (x1 + x2) / 2;
@@ -452,7 +452,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                               clearTimeout(hoverTimeoutRef.current);
                               hoverTimeoutRef.current = null;
                             }
-                            setHovered(ev.id);
+                            setHovered({ eventId: ev.id, timelineId: tl.id });
                           }}
                           onMouseLeave={() => {
                             hoverTimeoutRef.current = setTimeout(() => {
@@ -462,7 +462,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                           onPointerDown={(e) => {
                             if (e.pointerType === "touch") {
                               e.stopPropagation();
-                              setActiveEventId(prev => prev === ev.id ? null : ev.id);
+                              setActiveEventId(prev =>
+                                prev?.eventId === ev.id && prev?.timelineId === tl.id ? null : { eventId: ev.id, timelineId: tl.id }
+                              );
                             }
                           }}
                           onClick={(e) => {
@@ -517,7 +519,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                               clearTimeout(hoverTimeoutRef.current);
                               hoverTimeoutRef.current = null;
                             }
-                            setHovered(ev.id);
+                            setHovered({ eventId: ev.id, timelineId: tl.id });
                           }}
                           onMouseLeave={() => {
                             hoverTimeoutRef.current = setTimeout(() => {
@@ -527,7 +529,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                           onPointerDown={(e) => {
                             if (e.pointerType === "touch") {
                               e.stopPropagation();
-                              setActiveEventId(prev => prev === ev.id ? null : ev.id);
+                              setActiveEventId(prev =>
+                                prev?.eventId === ev.id && prev?.timelineId === tl.id ? null : { eventId: ev.id, timelineId: tl.id }
+                              );
                             }
                           }}
                           onClick={(e) => {
@@ -574,13 +578,14 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
         })}
         {/* Connection curves */}
         {(hovered !== null || activeEventId !== null) && (() => {
-          const evId = hovered ?? activeEventId;
-          const ev = events.find((e) => e.id === evId);
+          const active = hovered ?? activeEventId;
+          if (!active) return null;
+          const ev = events.find((e) => e.id === active.eventId);
           if (!ev) return null;
 
           const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
-          const tlIdx = visibleTimelines.findIndex((tl) => ev.timelines.some((t) => t.id === tl.id));
-          const laneIdx = tlIdx >= 0 ? tlIdx : 0;
+          const laneIdx = visibleTimelines.findIndex((tl) => tl.id === active.timelineId);
+          if (laneIdx < 0) return null;
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
 
           return (
@@ -614,8 +619,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           );
         })()}
         {(hovered !== null || activeEventId !== null) && (() => {
-          const evId = hovered ?? activeEventId;
-          const ev = events.find((e) => e.id === evId);
+          const active = hovered ?? activeEventId;
+          if (!active) return null;
+          const ev = events.find((e) => e.id === active.eventId);
           if (!ev) return null;
 
           const previewDoc = ev.documents.find((d) => d.isPrimary && d.resourceType === "image");
@@ -655,8 +661,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const hasTags = ev.tags.length > 0;
 
           const cx = padding.left + xForTime(toDate(ev.startDate).getTime(), effectiveRange, innerW);
-          const tlIdx = visibleTimelines.findIndex((tl) => ev.timelines.some((t) => t.id === tl.id));
-          const laneIdx = tlIdx >= 0 ? tlIdx : 0;
+          const laneIdx = visibleTimelines.findIndex((tl) => tl.id === active.timelineId);
+          if (laneIdx < 0) return null;
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
           const ly = yMid - 20;
 
@@ -694,7 +700,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     clearTimeout(hoverTimeoutRef.current);
                     hoverTimeoutRef.current = null;
                   }
-                  setHovered(ev.id);
+                  setHovered({ eventId: ev.id, timelineId: active.timelineId });
                 }}
                 onMouseLeave={() => {
                   hoverTimeoutRef.current = setTimeout(() => {
