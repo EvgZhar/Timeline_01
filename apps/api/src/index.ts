@@ -37,7 +37,18 @@ if (!process.env.JWT_SECRET) {
 
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:5173";
 
-app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "passport.yandex.ru", "mc.yandex.ru", "yandex.ru", "autofill.yandex.ru"],
+      imgSrc: ["'self'", "data:", "https:"],
+      scriptSrc: ["'self'", "yandex.ru", "mc.yandex.ru"],
+      frameSrc: ["'self'", "yandex.ru"],
+    },
+  },
+}));
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: "5mb" }));
