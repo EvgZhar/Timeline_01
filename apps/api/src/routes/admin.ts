@@ -10,6 +10,8 @@ import {
 } from "../db/schema.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { passwordService } from "../services/auth/password.js";
+import { getSettings, putSettings } from "../services/settings/settingsService.js";
+import { refreshTransporter } from "../services/auth/email.js";
 
 export const adminRouter = Router();
 
@@ -389,6 +391,28 @@ adminRouter.delete("/user-data-area", async (req, res, next) => {
         eq(sysUserDataArea.dataAreaId, dataAreaId),
       ));
     res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// GET /admin/settings
+adminRouter.get("/settings", async (_req, res, next) => {
+  try {
+    const settings = await getSettings();
+    res.json({ settings });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// PUT /admin/settings
+adminRouter.put("/settings", async (req, res, next) => {
+  try {
+    const { settings } = req.body;
+    const updated = await putSettings(settings ?? {});
+    refreshTransporter();
+    res.json({ settings: updated });
   } catch (e) {
     next(e);
   }

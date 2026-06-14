@@ -13,16 +13,48 @@ export function LoginPage() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setUnconfirmedEmail(null);
+    setResendDone(false);
     try {
       const response = await api.auth.login({ login, password });
       setAuth(response.user, response.currentDataAreaId);
       navigate("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка входа");
+      const msg = err instanceof Error ? err.message : "Ошибка входа";
+      setError(msg);
+
+      // Check for email confirmation error via response body
+      try {
+        const body = await (await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ login, password }),
+        })).json();
+        if (body?.code === "EMAIL_NOT_CONFIRMED") {
+          setUnconfirmedEmail(body.email);
+        }
+      } catch { /* ignore */ }
+    }
+  };
+
+  const handleResend = async () => {
+    if (!unconfirmedEmail) return;
+    setResending(true);
+    try {
+      await api.auth.resendVerification(unconfirmedEmail);
+      setResendDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка при повторной отправке");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -35,8 +67,25 @@ export function LoginPage() {
       <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-md">
         <h1 className="mb-6 text-center text-2xl font-bold">Вход</h1>
 
-        {error && (
+        {error && !unconfirmedEmail && (
           <div className="mb-4 rounded bg-red-50 p-3 text-sm text-red-600">{error}</div>
+        )}
+
+        {unconfirmedEmail && (
+          <div className="mb-4 rounded bg-amber-50 p-3 text-sm text-amber-700">
+            <p className="mb-2">Email не подтверждён. Проверьте почту <strong>{unconfirmedEmail}</strong> или запросите повторное письмо.</p>
+            {resendDone ? (
+              <p className="text-green-600">Письмо отправлено повторно!</p>
+            ) : (
+              <button
+                onClick={handleResend}
+                disabled={resending}
+                className="rounded bg-amber-500 px-3 py-1 text-white text-xs hover:bg-amber-600 disabled:opacity-50"
+              >
+                {resending ? "Отправка..." : "Выслать письмо повторно"}
+              </button>
+            )}
+          </div>
         )}
 
         <form onSubmit={handleSubmit}>

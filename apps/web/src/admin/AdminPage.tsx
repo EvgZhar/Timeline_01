@@ -6,7 +6,7 @@ import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
 import type { CreateUserRequest } from "@timeline/shared";
 
-type Tab = "users" | "data-areas";
+type Tab = "users" | "data-areas" | "smtp";
 
 function Checkbox({
   checked,
@@ -59,7 +59,6 @@ function UsersTab() {
     try {
       await api.admin.users.update(id, form);
 
-      // Sync data area permissions
       const current = userAreaIds;
       const prev = await api.admin.users.dataAreas(id);
 
@@ -626,6 +625,118 @@ function AreaUsersList({ dataAreaId }: { dataAreaId: number }) {
   );
 }
 
+function SmtpTab() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "settings"],
+    queryFn: () => api.admin.settings.get(),
+  });
+
+  const settings = data?.settings ?? {};
+
+  const [form, setForm] = useState({ SMTP_HOST: "", SMTP_PORT: "", SMTP_USER: "", SMTP_PASS: "" });
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (data?.settings) {
+      const s = data.settings;
+      setForm({
+        SMTP_HOST: typeof s.SMTP_HOST === "string" ? s.SMTP_HOST : "",
+        SMTP_PORT: typeof s.SMTP_PORT === "string" ? s.SMTP_PORT : "",
+        SMTP_USER: typeof s.SMTP_USER === "string" ? s.SMTP_USER : "",
+        SMTP_PASS: "",
+      });
+    }
+  }, [data]);
+
+  const handleSave = async () => {
+    setError("");
+    setSaved(false);
+    try {
+      await api.admin.settings.put({
+        SMTP_HOST: form.SMTP_HOST || null,
+        SMTP_PORT: form.SMTP_PORT || null,
+        SMTP_USER: form.SMTP_USER || null,
+        SMTP_PASS: form.SMTP_PASS || null,
+      });
+      setSaved(true);
+      qc.invalidateQueries({ queryKey: ["admin", "settings"] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка сохранения");
+    }
+  };
+
+  const smtpConfigured = typeof settings.SMTP_HOST === "string" || (settings.SMTP_HOST as { configured?: boolean })?.configured;
+
+  if (isLoading) return <div className="p-4 text-slate-400">Загрузка...</div>;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs font-medium text-slate-500">
+        SMTP / Почта {smtpConfigured ? <span className="text-green-600">(настроен)</span> : <span className="text-amber-600">(не настроен)</span>}
+      </p>
+
+      {error && (
+        <div className="rounded bg-red-50 p-2 text-xs text-red-600">{error}</div>
+      )}
+
+      {saved && (
+        <div className="rounded bg-green-50 p-2 text-xs text-green-700">Настройки сохранены</div>
+      )}
+
+      <label className="block text-sm">
+        SMTP Хост
+        <input
+          className="mt-1 w-full rounded border px-2 py-1 text-sm"
+          value={form.SMTP_HOST}
+          onChange={(e) => setForm({ ...form, SMTP_HOST: e.target.value })}
+          placeholder="smtp.yandex.ru"
+        />
+      </label>
+
+      <label className="block text-sm">
+        SMTP Порт
+        <input
+          className="mt-1 w-full rounded border px-2 py-1 text-sm"
+          value={form.SMTP_PORT}
+          onChange={(e) => setForm({ ...form, SMTP_PORT: e.target.value })}
+          placeholder="465"
+        />
+      </label>
+
+      <label className="block text-sm">
+        SMTP Пользователь
+        <input
+          className="mt-1 w-full rounded border px-2 py-1 text-sm"
+          value={form.SMTP_USER}
+          onChange={(e) => setForm({ ...form, SMTP_USER: e.target.value })}
+          placeholder="your-email@yandex.ru"
+        />
+      </label>
+
+      <label className="block text-sm">
+        SMTP Пароль (приложение)
+        <input
+          className="mt-1 w-full rounded border px-2 py-1 text-sm"
+          type="password"
+          value={form.SMTP_PASS}
+          onChange={(e) => setForm({ ...form, SMTP_PASS: e.target.value })}
+          placeholder={typeof settings.SMTP_PASS === "object" ? "••••••••" : ""}
+        />
+      </label>
+
+      <TooltipButton
+        label="Сохранить настройки SMTP"
+        onClick={handleSave}
+        className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+      >
+        <Save size={16} className="mr-1 inline" /> Сохранить
+      </TooltipButton>
+    </div>
+  );
+}
+
 export function AdminPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("users");
@@ -633,6 +744,7 @@ export function AdminPage() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "users", label: "Пользователи" },
     { key: "data-areas", label: "Области данных" },
+    { key: "smtp", label: "SMTP / Почта" },
   ];
 
   return (
@@ -665,7 +777,7 @@ export function AdminPage() {
         </div>
 
         <div className="rounded-b-lg bg-white p-4 shadow-sm">
-          {tab === "users" ? <UsersTab /> : <DataAreasTab />}
+          {tab === "users" ? <UsersTab /> : tab === "data-areas" ? <DataAreasTab /> : <SmtpTab />}
         </div>
       </div>
     </div>

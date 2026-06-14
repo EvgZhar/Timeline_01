@@ -3,7 +3,7 @@ import { db } from "../../db/index.js";
 import { appSettings } from "../../db/schema.js";
 import { decrypt, encrypt, hasEncryptionKey } from "./crypto.js";
 
-const SECRET_KEYS = new Set<string>([]);
+const SECRET_KEYS = new Set<string>(["SMTP_PASS"]);
 
 const DEFAULTS: Record<string, { value: string; isSecret: boolean }> = {};
 

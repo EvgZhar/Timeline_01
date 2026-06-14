@@ -71,7 +71,7 @@ export const api = {
     login: (body: LoginRequest) =>
       request<AuthResponse>("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
     register: (body: RegisterRequest) =>
-      request<AuthResponse>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
+      request<{ ok: boolean; message: string }>("/api/auth/register", { method: "POST", body: JSON.stringify(body) }),
     logout: () =>
       request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
     me: () => request<UserDto>("/api/auth/me"),
@@ -121,6 +121,14 @@ export const api = {
         request<{ ok: boolean }>("/api/admin/user-data-area", {
           method: "DELETE",
           body: JSON.stringify({ userId, dataAreaId }),
+        }),
+    },
+    settings: {
+      get: () => request<{ settings: Record<string, string | null | { configured: true }> }>("/api/admin/settings"),
+      put: (settings: Record<string, string | null>) =>
+        request<{ settings: Record<string, string | null | { configured: true }> }>("/api/admin/settings", {
+          method: "PUT",
+          body: JSON.stringify({ settings }),
         }),
     },
   },

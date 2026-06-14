@@ -1,11 +1,8 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import { useAuth } from "./AuthContext";
 
 export function RegisterPage() {
-  const navigate = useNavigate();
-  const { setAuth } = useAuth();
   const [form, setForm] = useState({
     login: "",
     email: "",
@@ -15,6 +12,7 @@ export function RegisterPage() {
     lastName: "",
   });
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
   const update = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -37,21 +35,39 @@ export function RegisterPage() {
     }
 
     try {
-      const response = await api.auth.register({
+      await api.auth.register({
         login: form.login,
         email: form.email,
         password: form.password,
         firstName: form.firstName,
         lastName: form.lastName,
       });
-      setAuth(response.user, response.currentDataAreaId);
-      navigate("/");
+      setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка регистрации");
     }
   };
 
   const inputClass = "w-full rounded border border-slate-300 px-3 py-2 focus:border-blue-500 focus:outline-none";
+
+  if (success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-100">
+        <div className="w-full max-w-sm rounded-lg bg-white p-8 text-center shadow-md">
+          <h1 className="mb-4 text-2xl font-bold text-green-700">Регистрация завершена</h1>
+          <p className="mb-2 text-slate-600">
+            Проверьте вашу почту <strong>{form.email}</strong>.
+          </p>
+          <p className="mb-6 text-slate-600">
+            Перейдите по ссылке в письме, чтобы подтвердить email и активировать аккаунт.
+          </p>
+          <Link to="/login" className="text-blue-600 hover:underline">
+            На страницу входа
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100">

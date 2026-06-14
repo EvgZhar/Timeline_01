@@ -204,6 +204,7 @@ authRouter.post("/register", loginLimiter, async (req, res, next) => {
         firstName: body.firstName,
         lastName: body.lastName,
         defaultDataAreaId: personalArea.id,
+        isActive: false,
         emailConfirmed: false,
         emailConfirmationTokenHash: confirmTokenHash,
         emailTokenExpiresAt: tokenExpiresAt,
@@ -224,28 +225,12 @@ authRouter.post("/register", loginLimiter, async (req, res, next) => {
       currentDataAreaId: personalArea.id,
     });
 
-    emailService.sendVerificationEmail(body.email, confirmToken).catch(console.error);
-
-    const accessToken = await jwtService.sign({ userId: user.id, login: user.login }, "access");
-    const refreshToken = await jwtService.sign({ userId: user.id, login: user.login }, "refresh");
-    await createRefreshToken(user.id, refreshToken, req);
-
-    setAuthCookies(res, accessToken, refreshToken);
+    await emailService.sendVerificationEmail(body.email, confirmToken).catch(console.error);
     await logAudit(user.id, "register", req);
 
     res.status(201).json({
-      user: {
-        id: user.id,
-        login: user.login,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        isActive: user.isActive,
-        emailConfirmed: user.emailConfirmed,
-        defaultDataAreaId: user.defaultDataAreaId,
-        createdAt: user.createdAt,
-      },
-      currentDataAreaId: personalArea.id,
+      ok: true,
+      message: "Регистрация прошла успешно. Проверьте вашу почту для подтверждения email.",
     });
   } catch (e) {
     next(e);
@@ -270,6 +255,11 @@ authRouter.post("/login", loginLimiter, async (req, res, next) => {
     }
 
     if (!user.isActive) {
+      if (!user.emailConfirmed) {
+        await logAudit(user.id, "login_fail", req, { reason: "email_not_confirmed" });
+        res.status(403).json({ error: "Email не подтверждён. Проверьте почту или запросите повторное письмо.", email: user.email, code: "EMAIL_NOT_CONFIRMED" });
+        return;
+      }
       await logAudit(user.id, "login_fail", req, { reason: "user_blocked" });
       res.status(403).json({ error: "Пользователь заблокирован" });
       return;
@@ -385,6 +375,7 @@ authRouter.post("/verify-email", async (req, res, next) => {
     await db
       .update(sysUserTable)
       .set({
+        isActive: true,
         emailConfirmed: true,
         emailConfirmationTokenHash: null,
         emailTokenExpiresAt: null,
