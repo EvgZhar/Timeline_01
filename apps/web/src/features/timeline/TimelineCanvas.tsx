@@ -330,7 +330,6 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 id: ev.id,
                 x: ev.startDate === ev.endDate ? sx : (sx + ex) / 2,
                 text: ev.name,
-                trackIdx: trackMap.get(ev.id) ?? 0,
               };
             }),
           );
@@ -410,7 +409,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 const labelX = isPoint ? x1 : (x1 + x2) / 2;
                 const label = labels.find((l) => l.id === ev.id);
                 const trackIdx = trackMap.get(ev.id) ?? 0;
-                const ly = label ? labelY(label.row, yMid, trackIdx) : yMid - 20;
+                const ly = label ? labelY(label.row, yMid) : yMid - 20;
                 const eventY = yMid + trackIdx * 14;
                 const color = trackColor(trackIdx);
 
