@@ -1,0 +1,1410 @@
+{
+  "id": "b4176db5-34fe-4802-aded-3486e19e7e3e",
+  "prevId": "5e4a3f32-58a6-4423-b1b8-98886c181972",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.AppSettings": {
+      "name": "AppSettings",
+      "schema": "",
+      "columns": {
+        "Key": {
+          "name": "Key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Value": {
+          "name": "Value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "IsSecret": {
+          "name": "IsSecret",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "UpdatedAt": {
+          "name": "UpdatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.DocumentEventLink": {
+      "name": "DocumentEventLink",
+      "schema": "",
+      "columns": {
+        "EventId": {
+          "name": "EventId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "DocumentId": {
+          "name": "DocumentId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "IsPrimary": {
+          "name": "IsPrimary",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedDateTime": {
+          "name": "CreatedDateTime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "DocumentEventLink_unique": {
+          "name": "DocumentEventLink_unique",
+          "columns": [
+            {
+              "expression": "EventId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "DocumentId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "DocumentEventLink_EventId_EventTable_Id_fk": {
+          "name": "DocumentEventLink_EventId_EventTable_Id_fk",
+          "tableFrom": "DocumentEventLink",
+          "tableTo": "EventTable",
+          "columnsFrom": [
+            "EventId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "DocumentEventLink_DocumentId_DocumentTable_DocumentId_fk": {
+          "name": "DocumentEventLink_DocumentId_DocumentTable_DocumentId_fk",
+          "tableFrom": "DocumentEventLink",
+          "tableTo": "DocumentTable",
+          "columnsFrom": [
+            "DocumentId"
+          ],
+          "columnsTo": [
+            "DocumentId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "DocumentEventLink_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "DocumentEventLink_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "DocumentEventLink",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.DocumentTable": {
+      "name": "DocumentTable",
+      "schema": "",
+      "columns": {
+        "DocumentId": {
+          "name": "DocumentId",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Description": {
+          "name": "Description",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "OriginalLink": {
+          "name": "OriginalLink",
+          "type": "varchar(1200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "StorageLink": {
+          "name": "StorageLink",
+          "type": "varchar(1200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ResourceType": {
+          "name": "ResourceType",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedDateTime": {
+          "name": "CreatedDateTime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "DocumentTable_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "DocumentTable_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "DocumentTable",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.EventDependencyLink": {
+      "name": "EventDependencyLink",
+      "schema": "",
+      "columns": {
+        "EventId": {
+          "name": "EventId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "DepEventId": {
+          "name": "DepEventId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "DependencyType": {
+          "name": "DependencyType",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedDateTime": {
+          "name": "CreatedDateTime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "EventDependencyLink_unique": {
+          "name": "EventDependencyLink_unique",
+          "columns": [
+            {
+              "expression": "EventId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "DepEventId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "EventDependencyLink_EventId_EventTable_Id_fk": {
+          "name": "EventDependencyLink_EventId_EventTable_Id_fk",
+          "tableFrom": "EventDependencyLink",
+          "tableTo": "EventTable",
+          "columnsFrom": [
+            "EventId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "EventDependencyLink_DepEventId_EventTable_Id_fk": {
+          "name": "EventDependencyLink_DepEventId_EventTable_Id_fk",
+          "tableFrom": "EventDependencyLink",
+          "tableTo": "EventTable",
+          "columnsFrom": [
+            "DepEventId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "EventDependencyLink_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "EventDependencyLink_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "EventDependencyLink",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.EventTable": {
+      "name": "EventTable",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "StartDate": {
+          "name": "StartDate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "EndDate": {
+          "name": "EndDate",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Notes": {
+          "name": "Notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedDateTime": {
+          "name": "CreatedDateTime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "EventTable_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "EventTable_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "EventTable",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.EventTimelineLink": {
+      "name": "EventTimelineLink",
+      "schema": "",
+      "columns": {
+        "EventId": {
+          "name": "EventId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "TimelineId": {
+          "name": "TimelineId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "Description": {
+          "name": "Description",
+          "type": "varchar(60)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedDateTime": {
+          "name": "CreatedDateTime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "EventTimelineLink_unique": {
+          "name": "EventTimelineLink_unique",
+          "columns": [
+            {
+              "expression": "EventId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "TimelineId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "EventTimelineLink_EventId_EventTable_Id_fk": {
+          "name": "EventTimelineLink_EventId_EventTable_Id_fk",
+          "tableFrom": "EventTimelineLink",
+          "tableTo": "EventTable",
+          "columnsFrom": [
+            "EventId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "EventTimelineLink_TimelineId_TimelineTable_Id_fk": {
+          "name": "EventTimelineLink_TimelineId_TimelineTable_Id_fk",
+          "tableFrom": "EventTimelineLink",
+          "tableTo": "TimelineTable",
+          "columnsFrom": [
+            "TimelineId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "EventTimelineLink_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "EventTimelineLink_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "EventTimelineLink",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.SysAuditLog": {
+      "name": "SysAuditLog",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "UserId": {
+          "name": "UserId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "EventType": {
+          "name": "EventType",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "IpAddress": {
+          "name": "IpAddress",
+          "type": "varchar(45)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "UserAgent": {
+          "name": "UserAgent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Metadata": {
+          "name": "Metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "SysAuditLog_UserId_SysUserTable_Id_fk": {
+          "name": "SysAuditLog_UserId_SysUserTable_Id_fk",
+          "tableFrom": "SysAuditLog",
+          "tableTo": "SysUserTable",
+          "columnsFrom": [
+            "UserId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.SysCounterTable": {
+      "name": "SysCounterTable",
+      "schema": "",
+      "columns": {
+        "Name": {
+          "name": "Name",
+          "type": "varchar(50)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Value": {
+          "name": "Value",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.SysDataAreaTable": {
+      "name": "SysDataAreaTable",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "Description": {
+          "name": "Description",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "IsPersonal": {
+          "name": "IsPersonal",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.SysExternalLogin": {
+      "name": "SysExternalLogin",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "UserId": {
+          "name": "UserId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "Provider": {
+          "name": "Provider",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ProviderId": {
+          "name": "ProviderId",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "SysExternalLogin_unique": {
+          "name": "SysExternalLogin_unique",
+          "columns": [
+            {
+              "expression": "Provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "ProviderId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "SysExternalLogin_UserId_SysUserTable_Id_fk": {
+          "name": "SysExternalLogin_UserId_SysUserTable_Id_fk",
+          "tableFrom": "SysExternalLogin",
+          "tableTo": "SysUserTable",
+          "columnsFrom": [
+            "UserId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.SysRefreshToken": {
+      "name": "SysRefreshToken",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "UserId": {
+          "name": "UserId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "TokenHash": {
+          "name": "TokenHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ExpiresAt": {
+          "name": "ExpiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "IpAddress": {
+          "name": "IpAddress",
+          "type": "varchar(45)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "UserAgent": {
+          "name": "UserAgent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "RevokedAt": {
+          "name": "RevokedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "SysRefreshToken_UserId_SysUserTable_Id_fk": {
+          "name": "SysRefreshToken_UserId_SysUserTable_Id_fk",
+          "tableFrom": "SysRefreshToken",
+          "tableTo": "SysUserTable",
+          "columnsFrom": [
+            "UserId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.SysUserDataArea": {
+      "name": "SysUserDataArea",
+      "schema": "",
+      "columns": {
+        "UserId": {
+          "name": "UserId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "CanCreate": {
+          "name": "CanCreate",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "CanRead": {
+          "name": "CanRead",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "CanUpdate": {
+          "name": "CanUpdate",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "CanDelete": {
+          "name": "CanDelete",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "SysUserDataArea_UserId_SysUserTable_Id_fk": {
+          "name": "SysUserDataArea_UserId_SysUserTable_Id_fk",
+          "tableFrom": "SysUserDataArea",
+          "tableTo": "SysUserTable",
+          "columnsFrom": [
+            "UserId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "SysUserDataArea_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "SysUserDataArea_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "SysUserDataArea",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "SysUserDataArea_UserId_DataAreaId_pk": {
+          "name": "SysUserDataArea_UserId_DataAreaId_pk",
+          "columns": [
+            "UserId",
+            "DataAreaId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.SysUserSettingsTable": {
+      "name": "SysUserSettingsTable",
+      "schema": "",
+      "columns": {
+        "UserId": {
+          "name": "UserId",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "CurrentDataAreaId": {
+          "name": "CurrentDataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "UpdatedAt": {
+          "name": "UpdatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "SysUserSettingsTable_UserId_SysUserTable_Id_fk": {
+          "name": "SysUserSettingsTable_UserId_SysUserTable_Id_fk",
+          "tableFrom": "SysUserSettingsTable",
+          "tableTo": "SysUserTable",
+          "columnsFrom": [
+            "UserId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "SysUserSettingsTable_CurrentDataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "SysUserSettingsTable_CurrentDataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "SysUserSettingsTable",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "CurrentDataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.SysUserTable": {
+      "name": "SysUserTable",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Login": {
+          "name": "Login",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "Email": {
+          "name": "Email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "PasswordHash": {
+          "name": "PasswordHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "FirstName": {
+          "name": "FirstName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "LastName": {
+          "name": "LastName",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "IsActive": {
+          "name": "IsActive",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "EmailConfirmed": {
+          "name": "EmailConfirmed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "EmailConfirmationTokenHash": {
+          "name": "EmailConfirmationTokenHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "EmailTokenExpiresAt": {
+          "name": "EmailTokenExpiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "PasswordResetTokenHash": {
+          "name": "PasswordResetTokenHash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "PasswordResetExpiresAt": {
+          "name": "PasswordResetExpiresAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "DefaultDataAreaId": {
+          "name": "DefaultDataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "AiQuotaTotal": {
+          "name": "AiQuotaTotal",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 10
+        },
+        "AiQuotaUsed": {
+          "name": "AiQuotaUsed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "AiQuotaResetDate": {
+          "name": "AiQuotaResetDate",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "SysUserTable_DefaultDataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "SysUserTable_DefaultDataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "SysUserTable",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DefaultDataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "SysUserTable_Login_unique": {
+          "name": "SysUserTable_Login_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "Login"
+          ]
+        },
+        "SysUserTable_Email_unique": {
+          "name": "SysUserTable_Email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "Email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.TagEventLink": {
+      "name": "TagEventLink",
+      "schema": "",
+      "columns": {
+        "EventId": {
+          "name": "EventId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "TagId": {
+          "name": "TagId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedDateTime": {
+          "name": "CreatedDateTime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "TagEventLink_unique": {
+          "name": "TagEventLink_unique",
+          "columns": [
+            {
+              "expression": "EventId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "TagId",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "TagEventLink_EventId_EventTable_Id_fk": {
+          "name": "TagEventLink_EventId_EventTable_Id_fk",
+          "tableFrom": "TagEventLink",
+          "tableTo": "EventTable",
+          "columnsFrom": [
+            "EventId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "TagEventLink_TagId_TagTable_Id_fk": {
+          "name": "TagEventLink_TagId_TagTable_Id_fk",
+          "tableFrom": "TagEventLink",
+          "tableTo": "TagTable",
+          "columnsFrom": [
+            "TagId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "TagEventLink_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "TagEventLink_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "TagEventLink",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.TagTable": {
+      "name": "TagTable",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "Color": {
+          "name": "Color",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "PreviewUrl": {
+          "name": "PreviewUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedDateTime": {
+          "name": "CreatedDateTime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "TagTable_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "TagTable_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "TagTable",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.TimelineTable": {
+      "name": "TimelineTable",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(60)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "Description": {
+          "name": "Description",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "IconUrl": {
+          "name": "IconUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "SortIndex": {
+          "name": "SortIndex",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "DataAreaId": {
+          "name": "DataAreaId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "CreatedDateTime": {
+          "name": "CreatedDateTime",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "TimelineTable_DataAreaId_SysDataAreaTable_Id_fk": {
+          "name": "TimelineTable_DataAreaId_SysDataAreaTable_Id_fk",
+          "tableFrom": "TimelineTable",
+          "tableTo": "SysDataAreaTable",
+          "columnsFrom": [
+            "DataAreaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.UserPreferences": {
+      "name": "UserPreferences",
+      "schema": "",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "UserId": {
+          "name": "UserId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "TimelineId": {
+          "name": "TimelineId",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "Visible": {
+          "name": "Visible",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "UserPreferences_UserId_SysUserTable_Id_fk": {
+          "name": "UserPreferences_UserId_SysUserTable_Id_fk",
+          "tableFrom": "UserPreferences",
+          "tableTo": "SysUserTable",
+          "columnsFrom": [
+            "UserId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "UserPreferences_TimelineId_TimelineTable_Id_fk": {
+          "name": "UserPreferences_TimelineId_TimelineTable_Id_fk",
+          "tableFrom": "UserPreferences",
+          "tableTo": "TimelineTable",
+          "columnsFrom": [
+            "TimelineId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { dependencyTypeLabel, formatDisplay, parseDisplay, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Download, ExternalLink, FileCheck, Link2, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, Download, ExternalLink, FileCheck, Link2, Loader, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
@@ -150,6 +150,22 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
   const setPrimaryMut = useMutation({
     mutationFn: (id: number) => api.documents.setPrimary(id),
     onSuccess: () => refetchDocs(),
+  });
+
+  const { data: aiQuota } = useQuery({
+    queryKey: ["ai-quota"],
+    queryFn: api.auth.aiQuota,
+    staleTime: 30_000,
+  });
+
+  const aiSummaryMut = useMutation({
+    mutationFn: (eventId: number) => api.events.aiSummary(eventId),
+    onSuccess: (data) => {
+      setNotes(data.text);
+    },
+    onError: (err: Error) => {
+      alert(err.message);
+    },
   });
 
   useEffect(() => {
@@ -596,16 +612,32 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
           <div className="space-y-1">
             <div className="flex items-center justify-between text-sm">
               <span>Описание</span>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); downloadMd(notes, name); }}
-                disabled={!notes.trim()}
-                className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
-                title="Экспорт .md"
-              >
-                <Download size={12} />
-                .md
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => aiSummaryMut.mutate(eventId!)}
+                  disabled={aiSummaryMut.isPending || (aiQuota !== undefined && aiQuota.used >= aiQuota.total)}
+                  className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-violet-600 hover:bg-violet-50 disabled:opacity-30"
+                  title={
+                    aiQuota !== undefined && aiQuota.used >= aiQuota.total
+                      ? "Лимит запросов исчерпан"
+                      : "Сгенерировать AI-справку"
+                  }
+                >
+                  {aiSummaryMut.isPending ? <Loader size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                  AI
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); downloadMd(notes, name); }}
+                  disabled={!notes.trim()}
+                  className="flex items-center gap-1 rounded px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                  title="Экспорт .md"
+                >
+                  <Download size={12} />
+                  .md
+                </button>
+              </div>
             </div>
             <MarkdownEditor
               value={notes}
@@ -743,7 +775,21 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
             onChange={setNotes}
             className="flex-1 min-h-0"
           />
-          <div className="mt-2 flex justify-end">
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => aiSummaryMut.mutate(eventId!)}
+              disabled={aiSummaryMut.isPending || (aiQuota !== undefined && aiQuota.used >= aiQuota.total)}
+              className="flex items-center gap-1 rounded border px-3 py-1.5 text-sm text-violet-600 hover:bg-violet-50 disabled:opacity-30"
+              title={
+                aiQuota !== undefined && aiQuota.used >= aiQuota.total
+                  ? "Лимит запросов исчерпан"
+                  : "Сгенерировать AI-справку"
+              }
+            >
+              {aiSummaryMut.isPending ? <Loader size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              AI-справка
+            </button>
             <button
               type="button"
               onClick={() => downloadMd(notes, name)}

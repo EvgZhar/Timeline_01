@@ -28,6 +28,9 @@ export const sysUserTable = pgTable("SysUserTable", {
   defaultDataAreaId: integer("DefaultDataAreaId")
     .notNull()
     .references(() => sysDataAreaTable.id),
+  aiQuotaTotal: integer("AiQuotaTotal").notNull().default(10),
+  aiQuotaUsed: integer("AiQuotaUsed").notNull().default(0),
+  aiQuotaResetDate: timestamp("AiQuotaResetDate", { withTimezone: true }),
   createdAt: timestamp("CreatedAt", { withTimezone: true })
     .notNull()
     .defaultNow(),

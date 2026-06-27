@@ -5,7 +5,17 @@ import { decrypt, encrypt, hasEncryptionKey } from "./crypto.js";
 
 const SECRET_KEYS = new Set<string>(["SMTP_PASS"]);
 
-const DEFAULTS: Record<string, { value: string; isSecret: boolean }> = {};
+const DEFAULTS: Record<string, { value: string; isSecret: boolean }> = {
+  DEFAULT_AI_QUOTA: { value: "10", isSecret: false },
+  AI_SYSTEM_PROMPT: {
+    value: "Ты — исторический ассистент. Напиши краткую справку о событии. Используй Markdown-разметку. Ответ должен быть на русском языке.",
+    isSecret: false,
+  },
+  AI_USER_PROMPT_TEMPLATE: {
+    value: 'Напиши краткую историческую справку о событии "{eventName}".',
+    isSecret: false,
+  },
+};
 
 export async function getSettings(): Promise<Record<string, string | { configured: true } | null>> {
   const rows = await db.select().from(appSettings);

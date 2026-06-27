@@ -1,8 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
-import { Check, LogOut, Shield } from "lucide-react";
+import { Check, LogOut, Shield, Sparkles } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import { useAuth } from "@/auth/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -177,6 +177,9 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
           </TooltipButton>
         </section>
 
+        {/* AI Quota */}
+        <AiQuotaSection />
+
         {/* Data area selector */}
         {settings && settings.availableAreas.length > 0 && (
           <section className="space-y-2">
@@ -274,5 +277,27 @@ export function ProfileSheet({ open, onOpenChange }: ProfileSheetProps) {
         </div>
       </div>
     </Sheet>
+  );
+}
+
+function AiQuotaSection() {
+  const { data: aiQuota } = useQuery({
+    queryKey: ["ai-quota"],
+    queryFn: api.auth.aiQuota,
+    staleTime: 30_000,
+  });
+
+  if (!aiQuota) return null;
+
+  return (
+    <section className="space-y-2">
+      <h3 className="font-medium">AI-справка</h3>
+      <div className="flex items-center gap-2 text-sm text-slate-600">
+        <Sparkles size={16} className="text-violet-500" />
+        <span>
+          Запросов к AI-справке: <strong>{aiQuota.used}</strong> / <strong>{aiQuota.total}</strong>
+        </span>
+      </div>
+    </section>
   );
 }

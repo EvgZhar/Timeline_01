@@ -1,6 +1,7 @@
 import { db } from "./index.js";
 import { eq } from "drizzle-orm";
 import {
+  appSettings,
   sysDataAreaTable,
   sysUserTable,
   sysUserDataArea,
@@ -43,6 +44,7 @@ async function seed() {
       isActive: true,
       emailConfirmed: true,
       defaultDataAreaId: defaultArea.id,
+      aiQuotaTotal: 10000,
     })
     .returning();
   console.log("+ User: admin");
@@ -126,6 +128,21 @@ async function seed() {
     { eventId: e2.id, timelineId: t1.id },
     { eventId: e1.id, timelineId: t2.id },
   ]);
+
+  // ── 6. AI settings defaults ──
+  await db.insert(appSettings).values({
+    key: "AI_SYSTEM_PROMPT",
+    value: "Ты — исторический ассистент. Напиши краткую справку о событии. Используй Markdown-разметку. Ответ должен быть на русском языке.",
+    isSecret: false,
+    updatedAt: new Date(),
+  }).onConflictDoNothing({ target: appSettings.key });
+
+  await db.insert(appSettings).values({
+    key: "AI_USER_PROMPT_TEMPLATE",
+    value: 'Напиши краткую историческую справку о событии "{eventName}".',
+    isSecret: false,
+    updatedAt: new Date(),
+  }).onConflictDoNothing({ target: appSettings.key });
 
   console.log("Seed complete");
 }

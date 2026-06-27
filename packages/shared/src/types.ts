@@ -7,6 +7,8 @@ export interface UserDto {
   isActive: boolean;
   emailConfirmed: boolean;
   defaultDataAreaId: number;
+  aiQuotaTotal?: number;
+  aiQuotaUsed?: number;
   createdAt: string;
 }
 

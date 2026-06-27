@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { dependencyCreateSchema, dependencyUpdateSchema, eventCreateSchema } from "@timeline/shared";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { eventTable, eventTimelineLink, tagEventLink, tagTable, timelineTable } from "../db/schema.js";
+import { eventTable, eventTimelineLink, tagEventLink, tagTable, timelineTable, sysUserTable } from "../db/schema.js";
 import * as svc from "../services/eventsService.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { checkPermission, getCurrentDataAreaId, getAllowedDataAreaIds } from "../services/permissionService.js";
+import { generateEventSummary } from "../services/aiService.js";
 
 export const eventsRouter = Router();
 
@@ -184,6 +185,69 @@ eventsRouter.delete("/:id", authenticate, async (req, res, next) => {
       return;
     }
     res.status(204).send();
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ── AI Summary ──
+
+eventsRouter.post("/:id/ai-summary", authenticate, async (req, res, next) => {
+  try {
+    const eventId = Number(req.params.id);
+    const userId = req.user!.userId;
+
+    const [existing] = await db
+      .select({
+        id: eventTable.id,
+        name: eventTable.name,
+        dataAreaId: eventTable.dataAreaId,
+      })
+      .from(eventTable)
+      .where(eq(eventTable.id, eventId))
+      .limit(1);
+
+    if (!existing) {
+      res.status(404).json({ error: "Событие не найдено" });
+      return;
+    }
+
+    if (existing.dataAreaId && !(await checkPermission(userId, existing.dataAreaId, "canUpdate"))) {
+      res.status(403).json({ error: "Нет права на редактирование" });
+      return;
+    }
+
+    const [user] = await db
+      .select({
+        aiQuotaTotal: sysUserTable.aiQuotaTotal,
+        aiQuotaUsed: sysUserTable.aiQuotaUsed,
+      })
+      .from(sysUserTable)
+      .where(eq(sysUserTable.id, userId))
+      .limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: "Пользователь не найден" });
+      return;
+    }
+
+    if (user.aiQuotaUsed >= user.aiQuotaTotal) {
+      res.status(403).json({
+        error: "Лимит запросов к AI-справке исчерпан",
+        remaining: 0,
+        total: user.aiQuotaTotal,
+      });
+      return;
+    }
+
+    const result = await generateEventSummary(existing.name);
+
+    await db
+      .update(sysUserTable)
+      .set({ aiQuotaUsed: sql`${sysUserTable.aiQuotaUsed} + 1` })
+      .where(eq(sysUserTable.id, userId));
+
+    res.json({ text: result.text });
   } catch (e) {
     next(e);
   }

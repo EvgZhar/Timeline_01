@@ -13,6 +13,7 @@
     "db:cleanup-tokens": "node --env-file=../../.env ../../node_modules/.bin/tsx src/db/cleanup-tokens.ts",
     "admin:reset-password": "node --env-file=../../.env ../../node_modules/.bin/tsx src/scripts/reset-admin-password.ts",
     "rate-limit:reset": "kill -9 $(lsof -ti :3001) 2>/dev/null; echo 'Готово — лимиты сброшены, API перезапускается'",
+    "db:reset-ai-quota": "node --env-file=../../.env ../../node_modules/.bin/tsx src/scripts/reset-ai-quota.ts",
     "dev": "node --env-file=../../.env ../../node_modules/.bin/tsx watch src/index.ts"
   },
   "dependencies": {

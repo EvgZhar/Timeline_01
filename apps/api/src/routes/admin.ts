@@ -45,6 +45,8 @@ adminRouter.get("/users", async (_req, res, next) => {
       isActive: u.isActive,
       emailConfirmed: u.emailConfirmed,
       defaultDataAreaId: u.defaultDataAreaId,
+      aiQuotaTotal: u.aiQuotaTotal,
+      aiQuotaUsed: u.aiQuotaUsed,
       createdAt: u.createdAt,
     })));
   } catch (e) {
@@ -70,13 +72,14 @@ adminRouter.get("/users/:id/data-areas", async (req, res, next) => {
 adminRouter.put("/users/:id", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
-    const { firstName, lastName, email, isActive, password } = req.body;
+    const { firstName, lastName, email, isActive, password, aiQuotaTotal } = req.body;
     const values: Record<string, unknown> = {};
     if (firstName !== undefined) values.firstName = firstName;
     if (lastName !== undefined) values.lastName = lastName;
     if (email !== undefined) values.email = email;
     if (isActive !== undefined) values.isActive = isActive;
     if (password) values.passwordHash = await passwordService.hash(password);
+    if (aiQuotaTotal !== undefined) values.aiQuotaTotal = aiQuotaTotal;
 
     const [updated] = await db
       .update(sysUserTable)
@@ -97,6 +100,8 @@ adminRouter.put("/users/:id", async (req, res, next) => {
       isActive: updated.isActive,
       emailConfirmed: updated.emailConfirmed,
       defaultDataAreaId: updated.defaultDataAreaId,
+      aiQuotaTotal: updated.aiQuotaTotal,
+      aiQuotaUsed: updated.aiQuotaUsed,
       createdAt: updated.createdAt,
     });
   } catch (e) {

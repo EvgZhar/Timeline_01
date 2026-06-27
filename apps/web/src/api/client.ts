@@ -94,6 +94,7 @@ export const api = {
       request<{ ok: boolean }>("/api/auth/change-password", { method: "POST", body: JSON.stringify(body) }),
     updateProfile: (body: { firstName?: string; lastName?: string }) =>
       request<UserDto>("/api/auth/profile", { method: "PUT", body: JSON.stringify(body) }),
+    aiQuota: () => request<{ total: number; used: number }>("/api/auth/ai-quota"),
   },
   admin: {
     users: {
@@ -173,6 +174,8 @@ export const api = {
       }),
     removeDependency: (eventId: number, depEventId: number) =>
       request<void>(`/api/events/${eventId}/dependencies/${depEventId}`, { method: "DELETE" }),
+    aiSummary: (eventId: number) =>
+      request<{ text: string }>(`/api/events/${eventId}/ai-summary`, { method: "POST" }),
   },
   tags: {
     list: (q?: string) =>

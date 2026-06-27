@@ -46,7 +46,7 @@ function UsersTab() {
 
   const startEdit = async (u: NonNullable<typeof users>[number]) => {
     setEditingId(u.id);
-    setForm({ firstName: u.firstName ?? "", lastName: u.lastName ?? "", email: u.email });
+    setForm({ firstName: u.firstName ?? "", lastName: u.lastName ?? "", email: u.email, aiQuotaTotal: String(u.aiQuotaTotal ?? 10) });
     try {
       const ids = await api.admin.users.dataAreas(u.id);
       setUserAreaIds(ids);
@@ -57,7 +57,8 @@ function UsersTab() {
 
   const save = async (id: number) => {
     try {
-      await api.admin.users.update(id, form);
+      const body = { ...form, aiQuotaTotal: Number(form.aiQuotaTotal) || 10 };
+      await api.admin.users.update(id, body);
 
       const current = userAreaIds;
       const prev = await api.admin.users.dataAreas(id);
@@ -138,6 +139,10 @@ function UsersTab() {
                 <input className="w-24 rounded border px-2 py-1" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
                 <input className="w-24 rounded border px-2 py-1" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                 <input className="w-40 rounded border px-2 py-1" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                <label className="flex items-center gap-1 text-xs text-slate-500">
+                  AI-квота
+                  <input className="w-16 rounded border px-2 py-1 text-xs" type="number" min={0} value={form.aiQuotaTotal ?? "10"} onChange={(e) => setForm({ ...form, aiQuotaTotal: e.target.value })} />
+                </label>
                 <TooltipButton label="Сохранить" onClick={() => save(u.id)} className="rounded bg-green-600 p-1.5 text-white">
                   <Check size={14} />
                 </TooltipButton>
@@ -181,7 +186,10 @@ function UsersTab() {
               <span className="w-8 shrink-0 text-slate-400">#{u.id}</span>
               <span className="w-24 shrink-0 font-medium">{u.firstName} {u.lastName}</span>
               <span className="w-20 shrink-0 text-slate-500">{u.login}</span>
-              <span className="w-40 shrink-0 truncate text-slate-500">{u.email}</span>
+              <span className="w-36 shrink-0 truncate text-slate-500">{u.email}</span>
+              <span className="shrink-0 text-xs text-violet-600" title="AI-квота">
+                AI {u.aiQuotaUsed ?? 0}/{u.aiQuotaTotal ?? 10}
+              </span>
               <span className={`ml-auto shrink-0 text-xs ${u.isActive ? "text-green-600" : "text-red-500"}`}>
                 {u.isActive ? "активен" : "заблокирован"}
               </span>
@@ -634,7 +642,7 @@ function SmtpTab() {
 
   const settings = data?.settings ?? {};
 
-  const [form, setForm] = useState({ SMTP_HOST: "", SMTP_PORT: "", SMTP_USER: "", SMTP_PASS: "" });
+  const [form, setForm] = useState({ SMTP_HOST: "", SMTP_PORT: "", SMTP_USER: "", SMTP_PASS: "", DEFAULT_AI_QUOTA: "", AI_SYSTEM_PROMPT: "", AI_USER_PROMPT_TEMPLATE: "" });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
@@ -646,6 +654,9 @@ function SmtpTab() {
         SMTP_PORT: typeof s.SMTP_PORT === "string" ? s.SMTP_PORT : "",
         SMTP_USER: typeof s.SMTP_USER === "string" ? s.SMTP_USER : "",
         SMTP_PASS: "",
+        DEFAULT_AI_QUOTA: typeof s.DEFAULT_AI_QUOTA === "string" ? s.DEFAULT_AI_QUOTA : "10",
+        AI_SYSTEM_PROMPT: typeof s.AI_SYSTEM_PROMPT === "string" ? s.AI_SYSTEM_PROMPT : "",
+        AI_USER_PROMPT_TEMPLATE: typeof s.AI_USER_PROMPT_TEMPLATE === "string" ? s.AI_USER_PROMPT_TEMPLATE : "",
       });
     }
   }, [data]);
@@ -659,6 +670,9 @@ function SmtpTab() {
         SMTP_PORT: form.SMTP_PORT || null,
         SMTP_USER: form.SMTP_USER || null,
         SMTP_PASS: form.SMTP_PASS || null,
+        DEFAULT_AI_QUOTA: form.DEFAULT_AI_QUOTA || null,
+        AI_SYSTEM_PROMPT: form.AI_SYSTEM_PROMPT || null,
+        AI_USER_PROMPT_TEMPLATE: form.AI_USER_PROMPT_TEMPLATE || null,
       });
       setSaved(true);
       qc.invalidateQueries({ queryKey: ["admin", "settings"] });
@@ -726,8 +740,43 @@ function SmtpTab() {
         />
       </label>
 
+      <hr className="border-slate-200" />
+      <p className="text-xs font-medium text-slate-500">AI-справка (YandexGPT)</p>
+
+      <label className="block text-sm">
+        Квота AI по умолчанию для новых пользователей
+        <input
+          className="mt-1 w-full rounded border px-2 py-1 text-sm"
+          type="number"
+          min={0}
+          value={form.DEFAULT_AI_QUOTA}
+          onChange={(e) => setForm({ ...form, DEFAULT_AI_QUOTA: e.target.value })}
+          placeholder="10"
+        />
+      </label>
+
+      <label className="block text-sm">
+        System prompt (AI)
+        <textarea
+          className="mt-1 w-full rounded border px-2 py-1 text-xs"
+          rows={3}
+          value={form.AI_SYSTEM_PROMPT}
+          onChange={(e) => setForm({ ...form, AI_SYSTEM_PROMPT: e.target.value })}
+        />
+      </label>
+
+      <label className="block text-sm">
+        Шаблон промпта пользователя (используйте {'{eventName}'} как placeholder)
+        <textarea
+          className="mt-1 w-full rounded border px-2 py-1 text-xs"
+          rows={2}
+          value={form.AI_USER_PROMPT_TEMPLATE}
+          onChange={(e) => setForm({ ...form, AI_USER_PROMPT_TEMPLATE: e.target.value })}
+        />
+      </label>
+
       <TooltipButton
-        label="Сохранить настройки SMTP"
+        label="Сохранить настройки"
         onClick={handleSave}
         className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
       >

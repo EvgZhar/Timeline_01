@@ -648,6 +648,33 @@ authRouter.get("/settings", authenticate, async (req, res, next) => {
   }
 });
 
+// GET /auth/ai-quota
+authRouter.get("/ai-quota", authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user!.userId;
+    const [user] = await db
+      .select({
+        aiQuotaTotal: sysUserTable.aiQuotaTotal,
+        aiQuotaUsed: sysUserTable.aiQuotaUsed,
+      })
+      .from(sysUserTable)
+      .where(eq(sysUserTable.id, userId))
+      .limit(1);
+
+    if (!user) {
+      res.status(404).json({ error: "Пользователь не найден" });
+      return;
+    }
+
+    res.json({
+      total: user.aiQuotaTotal,
+      used: user.aiQuotaUsed,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // PUT /auth/settings
 authRouter.put("/settings", authenticate, async (req, res, next) => {
   try {
