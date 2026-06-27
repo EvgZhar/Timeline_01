@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { formatCenturyYear, formatDisplay, fromStorage, toDate } from "@timeline/shared";
+import { dependencyTypeLabel, formatCenturyYear, formatDisplay, fromStorage, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { assignBarThickness, assignEventTracks } from "./eventLayout";
@@ -688,6 +688,21 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const lineY1 = tooltipY + tooltipH;
           const lineY2 = ly;
 
+          const allDeps = (ev.dependencies ?? []).map((d) => ({
+            id: d.depEventId,
+            name: d.depEventName ?? events.find((e) => e.id === d.depEventId)?.name ?? `#${d.depEventId}`,
+            typeLabel: dependencyTypeLabel(d.dependencyType),
+          }));
+          const hasDeps = allDeps.length > 0;
+          const depTooltipW = Math.floor(tooltipW / 2);
+          const depTooltipX = tooltipX + tooltipW + 8;
+          const groupedDeps = allDeps.reduce<Map<string, { id: number; name: string }[]>>((acc, d) => {
+            const arr = acc.get(d.typeLabel) ?? [];
+            arr.push({ id: d.id, name: d.name });
+            acc.set(d.typeLabel, arr);
+            return acc;
+          }, new Map());
+
           return (
             <>
               {/* Connecting line */}
@@ -838,6 +853,59 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 </div>
               </div>
             </foreignObject>
+            {hasDeps && (
+              <foreignObject x={depTooltipX} y={tooltipY} width={depTooltipW} height={tooltipH}>
+                <div
+                  className="tooltip-enter"
+                  onMouseEnter={() => {
+                    if (hoverTimeoutRef.current) {
+                      clearTimeout(hoverTimeoutRef.current);
+                      hoverTimeoutRef.current = null;
+                    }
+                    setHovered({ eventId: ev.id, timelineId: active.timelineId, hitX: active.hitX });
+                  }}
+                  onMouseLeave={() => {
+                    hoverTimeoutRef.current = setTimeout(() => {
+                      setHovered(null);
+                    }, 150);
+                  }}
+                  style={{
+                    background: "white",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "12px",
+                    padding: "8px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    fontSize: "12px",
+                    lineHeight: 1.4,
+                    color: "#1e293b",
+                    fontFamily: "system-ui, sans-serif",
+                    width: "100%",
+                    height: "100%",
+                    boxSizing: "border-box",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                  }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: "14px", lineHeight: 1.3, flexShrink: 0 }}>
+                    Связи
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {Array.from(groupedDeps.entries()).map(([typeLabel, deps]) => (
+                      <div key={typeLabel}>
+                        <div style={{ fontWeight: 600, fontSize: "11px", marginBottom: "2px" }}>{typeLabel}</div>
+                        {deps.map((dep) => (
+                          <div key={dep.id} style={{ lineHeight: 1.4, paddingLeft: "8px", fontSize: "11px" }}>
+                            • {dep.name}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </foreignObject>
+            )}
           </>
           );
         })()}
