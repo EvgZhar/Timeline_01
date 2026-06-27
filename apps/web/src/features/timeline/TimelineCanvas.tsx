@@ -875,7 +875,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     borderRadius: "12px",
                     padding: "8px",
                     boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                    fontSize: "13px",
+                    fontSize: "14px",
                     lineHeight: 1.4,
                     color: "#1e293b",
                     fontFamily: "system-ui, sans-serif",
@@ -888,15 +888,15 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     gap: "6px",
                   }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: "15px", lineHeight: 1.3, flexShrink: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: "16px", lineHeight: 1.3, flexShrink: 0 }}>
                     Связи
                   </div>
                   <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
                     {Array.from(groupedDeps.entries()).map(([typeLabel, deps]) => (
                       <div key={typeLabel}>
-                        <div style={{ fontWeight: 600, fontSize: "12px", marginBottom: "2px" }}>{typeLabel}</div>
+                        <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "2px" }}>{typeLabel}</div>
                         {deps.map((dep) => (
-                          <div key={dep.id} style={{ lineHeight: 1.4, paddingLeft: "8px", fontSize: "12px" }}>
+                          <div key={dep.id} style={{ lineHeight: 1.4, paddingLeft: "8px", fontSize: "13px" }}>
                             • {dep.name}
                           </div>
                         ))}
