@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { dependencyTypeLabel, formatDisplay, parseDisplay, toDate } from "@timeline/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Download, ExternalLink, Link2, Plus, Save, Trash2, X } from "lucide-react";
+import { Check, Download, ExternalLink, FileCheck, Link2, Plus, Save, Trash2, X } from "lucide-react";
 import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
 import { Sheet } from "@/components/Sheet";
@@ -17,6 +17,7 @@ interface EventSheetProps {
   initialDate?: string;
   initialTimelineId?: number;
   onClose: () => void;
+  onSaveSuccess?: (id: number) => void;
   filterState?: {
     tagFilterIds: number[];
     tagFilterMode: "and" | "or";
@@ -85,7 +86,7 @@ function downloadMd(notes: string, name: string) {
   URL.revokeObjectURL(url);
 }
 
-export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onClose, filterState }: EventSheetProps) {
+export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onClose, onSaveSuccess, filterState }: EventSheetProps) {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<"main" | "attachments" | "description" | "dependencies">("main");
   const { data: event } = useQuery({
@@ -198,7 +199,6 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
     onSuccess: (data) => {
       qc.setQueryData(["event", data.id], data);
       qc.invalidateQueries({ queryKey: ["events"] });
-      onClose();
     },
   });
 
@@ -479,11 +479,25 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
         <div className="flex items-center gap-2">
           <TooltipButton
             label="Сохранить"
-            onClick={() => saveMut.mutate()}
+            onClick={async () => {
+              const data = await saveMut.mutateAsync();
+              if (mode === "create") onSaveSuccess?.(data.id);
+            }}
             disabled={!valid || saveMut.isPending}
             className="flex w-24 items-center justify-center rounded bg-blue-600 py-2 text-white disabled:opacity-50"
           >
             <Save size={20} />
+          </TooltipButton>
+          <TooltipButton
+            label="Сохранить и закрыть"
+            onClick={async () => {
+              await saveMut.mutateAsync();
+              onClose();
+            }}
+            disabled={!valid || saveMut.isPending}
+            className="flex w-32 items-center justify-center rounded bg-blue-600 py-2 text-white disabled:opacity-50"
+          >
+            <FileCheck size={20} />
           </TooltipButton>
           <div className="ml-auto flex items-center gap-2">
             <TooltipButton

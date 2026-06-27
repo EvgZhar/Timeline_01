@@ -8,3 +8,4 @@ uploads
 .env.local
 .DS_Store
 localtemp/
+.playwright-mcp
