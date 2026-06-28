@@ -8,6 +8,7 @@ import { Sheet } from "@/components/Sheet";
 import { DatePickerField } from "@/components/DatePickerField";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import type { DocumentDto, DependencyType } from "@timeline/shared";
+import { CreateRelatedEventDialog } from "./CreateRelatedEventDialog";
 
 import type { ViewRange } from "../timeline/timeScale";
 
@@ -18,6 +19,7 @@ interface EventSheetProps {
   initialTimelineId?: number;
   onClose: () => void;
   onSaveSuccess?: (id: number) => void;
+  onNavigateToEvent?: (id: number) => void;
   filterState?: {
     tagFilterIds: number[];
     tagFilterMode: "and" | "or";
@@ -86,7 +88,7 @@ function downloadMd(notes: string, name: string) {
   URL.revokeObjectURL(url);
 }
 
-export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onClose, onSaveSuccess, filterState }: EventSheetProps) {
+export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onClose, onSaveSuccess, onNavigateToEvent, filterState }: EventSheetProps) {
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<"main" | "attachments" | "description" | "dependencies">("main");
   const { data: event } = useQuery({
@@ -350,6 +352,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
 
   const [pendingDepEventId, setPendingDepEventId] = useState<number | null>(null);
   const [pendingDepType, setPendingDepType] = useState<DependencyType>("influences");
+  const [showCreateRelated, setShowCreateRelated] = useState(false);
 
   // --- Add pending doc (create mode) ---
   const addPendingDoc = () => {
@@ -485,6 +488,7 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
   );
 
   return (
+    <>
     <Sheet
       open={true}
       side="right"
@@ -515,6 +519,16 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
           >
             <FileCheck size={20} />
           </TooltipButton>
+          {mode === "edit" && (
+            <TooltipButton
+              label="Создать связанное событие"
+              onClick={() => setShowCreateRelated(true)}
+              className="flex items-center gap-1 rounded border border-blue-300 px-2 py-2 text-blue-600 hover:bg-blue-50"
+            >
+              <Link2 size={16} />
+              <span className="text-xs">+ связанное</span>
+            </TooltipButton>
+          )}
           <div className="ml-auto flex items-center gap-2">
             <TooltipButton
               label="Отмена"
@@ -1085,5 +1099,22 @@ export function EventSheet({ mode, eventId, initialDate, initialTimelineId, onCl
         </div>
       )}
     </Sheet>
+
+      {mode === "edit" && eventId && (
+        <CreateRelatedEventDialog
+          open={showCreateRelated}
+          onClose={() => setShowCreateRelated(false)}
+          sourceEventId={eventId}
+          sourceEventName={event?.name ?? ""}
+          sourceTimelineIds={event?.timelines.map((t) => t.id) ?? []}
+          onCreate={() => setShowCreateRelated(false)}
+          onCreateAndOpen={(newId) => {
+            setShowCreateRelated(false);
+            onNavigateToEvent?.(newId);
+          }}
+        />
+      )}
+    </>
   );
 }
+

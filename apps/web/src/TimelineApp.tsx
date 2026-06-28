@@ -498,6 +498,7 @@ export function TimelineApp() {
           initialTimelineId={eventSheet.mode === "create" ? eventSheet.initialTimelineId : undefined}
           onClose={() => setEventSheet(null)}
           onSaveSuccess={(id) => setEventSheet({ mode: "edit", id })}
+          onNavigateToEvent={(id) => setEventSheet({ mode: "edit", id })}
           filterState={{ tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode, viewRange, visibleTimelineIds }}
         />
       )}
