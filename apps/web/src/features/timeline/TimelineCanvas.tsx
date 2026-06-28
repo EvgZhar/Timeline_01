@@ -169,6 +169,36 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
     setRange({ startMs: effectiveRange.startMs + shift, endMs: effectiveRange.endMs + shift });
   };
 
+  const eventTrackPositions = useMemo(() => {
+    const map = new Map<number, Map<number, number>>();
+    for (const tl of visibleTimelines) {
+      const laneEvents = events.filter((ev) => {
+        const inTimeline = ev.timelines.some((t) => t.id === tl.id);
+        if (!inTimeline) return false;
+        if (tagFilterIds.length > 0) {
+          const tagIds = ev.tags.map((t) => t.id);
+          const matchesTags = tagFilterMode === "and"
+            ? tagFilterIds.every((id) => tagIds.includes(id))
+            : tagFilterIds.some((id) => tagIds.includes(id));
+          if (!matchesTags) return false;
+        }
+        if (textSearchQuery.trim()) {
+          const q = textSearchQuery.toLowerCase();
+          const nameMatch = ev.name.toLowerCase().includes(q);
+          if (textSearchMode === "name" && !nameMatch) return false;
+          if (textSearchMode === "nameAndNotes" && !nameMatch && !(ev.notes ?? "").toLowerCase().includes(q)) return false;
+        }
+        return true;
+      });
+      const trackMap = assignEventTracks(laneEvents);
+      for (const [evId, trackIdx] of trackMap) {
+        if (!map.has(evId)) map.set(evId, new Map());
+        map.get(evId)!.set(tl.id, trackIdx);
+      }
+    }
+    return map;
+  }, [events, visibleTimelines, tagFilterIds, tagFilterMode, textSearchQuery, textSearchMode]);
+
   return (
     <div
       ref={containerRef}
@@ -281,18 +311,18 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           ))}
         </defs>
         <rect width={size.w} height={size.h} fill="white" />
-        {ticks.map((t, i) => (
-          <text
-            key={i}
-            x={padding.left + t.x}
-            y={padding.top - 8}
-            textAnchor="middle"
-            fontSize={11}
-            fill="#64748b"
-          >
-            {t.label}
-          </text>
-        ))}
+          {ticks.map((t, i) => (
+            <text
+              key={i}
+              x={padding.left + t.x}
+              y={padding.top - 8}
+              textAnchor="middle"
+              fontSize={11}
+              fill="#64748b"
+            >
+              {t.label}
+            </text>
+          ))}
 
         {visibleTimelines.map((tl, li) => {
           const y0 = padding.top + li * (laneH + GAP);
@@ -595,6 +625,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const laneIdx = visibleTimelines.findIndex((tl) => tl.id === active.timelineId);
           if (laneIdx < 0) return null;
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
+          const srcTrackIdx = eventTrackPositions.get(active.eventId)?.get(active.timelineId) ?? 0;
+          const srcY = yMid + srcTrackIdx * 14;
           const deps = ev.dependencies ?? [];
           const depCount = deps.length;
 
@@ -605,7 +637,10 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                 if (!depEv) return null;
                 const depTlIdx = visibleTimelines.findIndex((tl) => depEv.timelines.some((t) => t.id === tl.id));
                 if (depTlIdx < 0) return null;
+                const depTlId = visibleTimelines[depTlIdx].id;
                 const depYMid = padding.top + depTlIdx * (laneH + GAP) + laneH / 2;
+                const depTrackIdx = eventTrackPositions.get(dep.depEventId)?.get(depTlId) ?? 0;
+                const depY = depYMid + depTrackIdx * 14;
                 const depX = padding.left + xForTime(toDate(depEv.startDate).getTime(), effectiveRange, innerW);
                 const isComposition = dep.dependencyType === "part_of" || dep.dependencyType === "contains";
 
@@ -614,13 +649,13 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                   : CONNECTION_COLORS[i % CONNECTION_COLORS.length];
                 const dash = isComposition ? "none" : "6 4";
 
-                const dir = depYMid >= yMid ? 1 : -1;
-                const turnY = yMid + dir * (20 + i * 4);
+                const dir = depY >= srcY ? 1 : -1;
+                const turnY = srcY + dir * (20 + i * 4);
 
                 return (
                   <path
                     key={dep.depEventId}
-                    d={`M ${cx} ${yMid} L ${cx} ${turnY} L ${depX} ${turnY} L ${depX} ${depYMid}`}
+                    d={`M ${cx} ${srcY} L ${cx} ${turnY} L ${depX} ${turnY} L ${depX} ${depY}`}
                     fill="none"
                     stroke={color}
                     strokeWidth={2}
