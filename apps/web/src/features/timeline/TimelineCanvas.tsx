@@ -27,6 +27,7 @@ interface TimelineCanvasProps {
 }
 
 const TRACK_COLORS = ["#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"];
+const CONNECTION_COLORS = ["#2563eb", "#d97706", "#059669", "#7c3aed", "#db2777", "#0891b2", "#ca8a04", "#be185d"];
 
 function trackColor(idx: number): string {
   return TRACK_COLORS[Math.min(idx, TRACK_COLORS.length - 1)];
@@ -583,7 +584,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
             </g>
           );
         })}
-        {/* Connection curves */}
+        {/* Connection polylines */}
         {(hovered !== null || activeEventId !== null) && (() => {
           const active = hovered ?? activeEventId;
           if (!active) return null;
@@ -594,25 +595,32 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
           const laneIdx = visibleTimelines.findIndex((tl) => tl.id === active.timelineId);
           if (laneIdx < 0) return null;
           const yMid = padding.top + laneIdx * (laneH + GAP) + laneH / 2;
+          const deps = ev.dependencies ?? [];
+          const depCount = deps.length;
 
           return (
-            <g key="dep-curves">
-              {(ev.dependencies ?? []).map((dep) => {
+            <g key="dep-lines">
+              {deps.map((dep, i) => {
                 const depEv = events.find((e) => e.id === dep.depEventId);
                 if (!depEv) return null;
                 const depTlIdx = visibleTimelines.findIndex((tl) => depEv.timelines.some((t) => t.id === tl.id));
                 if (depTlIdx < 0) return null;
                 const depYMid = padding.top + depTlIdx * (laneH + GAP) + laneH / 2;
                 const depX = padding.left + xForTime(toDate(depEv.startDate).getTime(), effectiveRange, innerW);
-                const mx = (cx + depX) / 2;
                 const isComposition = dep.dependencyType === "part_of" || dep.dependencyType === "contains";
-                const color = isComposition ? "#2563eb" : "#d97706";
+
+                const color = depCount === 1
+                  ? (isComposition ? "#2563eb" : "#d97706")
+                  : CONNECTION_COLORS[i % CONNECTION_COLORS.length];
                 const dash = isComposition ? "none" : "6 4";
+
+                const dir = depYMid >= yMid ? 1 : -1;
+                const turnY = yMid + dir * (20 + i * 4);
 
                 return (
                   <path
                     key={dep.depEventId}
-                    d={`M ${cx} ${yMid} Q ${mx} ${(yMid + depYMid) / 2} ${depX} ${depYMid}`}
+                    d={`M ${cx} ${yMid} L ${cx} ${turnY} L ${depX} ${turnY} L ${depX} ${depYMid}`}
                     fill="none"
                     stroke={color}
                     strokeWidth={2}
