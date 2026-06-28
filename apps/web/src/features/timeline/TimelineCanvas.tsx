@@ -939,7 +939,14 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                       <div key={typeLabel}>
                         <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "2px" }}>{typeLabel}</div>
                         {deps.map((dep) => (
-                          <div key={dep.id} style={{ lineHeight: 1.4, paddingLeft: "8px", fontSize: "13px" }}>
+                          <div
+                            key={dep.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEventClick(dep.id);
+                            }}
+                            style={{ lineHeight: 1.4, paddingLeft: "8px", fontSize: "13px", cursor: "pointer", color: "#2563eb", textDecoration: "underline" }}
+                          >
                             • {dep.name}
                           </div>
                         ))}
