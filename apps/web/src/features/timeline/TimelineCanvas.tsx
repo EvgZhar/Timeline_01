@@ -52,6 +52,9 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
   const [hovered, setHovered] = useState<{ eventId: number; timelineId: number; hitX: number } | null>(null);
   const [activeEventId, setActiveEventId] = useState<{ eventId: number; timelineId: number; hitX: number } | null>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingHoverRef = useRef<{ eventId: number; timelineId: number; hitX: number } | null>(null);
+  const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltipOwnerRef = useRef<{ eventId: number; timelineId: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ x: number; range: ViewRange } | null>(null);
   const wasDraggedRef = useRef(false);
@@ -116,6 +119,7 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
     return () => {
       ro.disconnect();
       if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+      if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
     };
   }, []);
 
@@ -478,6 +482,31 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                           fill="transparent"
                           style={{ cursor: "pointer" }}
                           onMouseEnter={(e) => {
+                            if (tooltipOwnerRef.current && (tooltipOwnerRef.current.eventId !== ev.id || tooltipOwnerRef.current.timelineId !== tl.id)) {
+                              if (hoverTimeoutRef.current) {
+                                clearTimeout(hoverTimeoutRef.current);
+                                hoverTimeoutRef.current = null;
+                              }
+                              if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
+                              const rect = containerRef.current!.getBoundingClientRect();
+                              const hitX = e.clientX - rect.left;
+                              pendingHoverRef.current = { eventId: ev.id, timelineId: tl.id, hitX };
+                              pendingTimeoutRef.current = setTimeout(() => {
+                                const p = pendingHoverRef.current;
+                                if (p) {
+                                  setHovered(p);
+                                  tooltipOwnerRef.current = { eventId: p.eventId, timelineId: p.timelineId };
+                                  pendingHoverRef.current = null;
+                                  pendingTimeoutRef.current = null;
+                                }
+                              }, 400);
+                              return;
+                            }
+                            if (pendingTimeoutRef.current) {
+                              clearTimeout(pendingTimeoutRef.current);
+                              pendingTimeoutRef.current = null;
+                              pendingHoverRef.current = null;
+                            }
                             if (hoverTimeoutRef.current) {
                               clearTimeout(hoverTimeoutRef.current);
                               hoverTimeoutRef.current = null;
@@ -485,10 +514,17 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                             const rect = containerRef.current!.getBoundingClientRect();
                             const hitX = e.clientX - rect.left;
                             setHovered({ eventId: ev.id, timelineId: tl.id, hitX });
+                            tooltipOwnerRef.current = { eventId: ev.id, timelineId: tl.id };
                           }}
                           onMouseLeave={() => {
+                            if (pendingTimeoutRef.current) {
+                              clearTimeout(pendingTimeoutRef.current);
+                              pendingTimeoutRef.current = null;
+                            }
+                            pendingHoverRef.current = null;
                             hoverTimeoutRef.current = setTimeout(() => {
                               setHovered(null);
+                              tooltipOwnerRef.current = null;
                             }, 150);
                           }}
                           onPointerDown={(e) => {
@@ -549,6 +585,31 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                           fill="transparent"
                           style={{ cursor: "pointer" }}
                           onMouseEnter={(e) => {
+                            if (tooltipOwnerRef.current && (tooltipOwnerRef.current.eventId !== ev.id || tooltipOwnerRef.current.timelineId !== tl.id)) {
+                              if (hoverTimeoutRef.current) {
+                                clearTimeout(hoverTimeoutRef.current);
+                                hoverTimeoutRef.current = null;
+                              }
+                              if (pendingTimeoutRef.current) clearTimeout(pendingTimeoutRef.current);
+                              const rect = containerRef.current!.getBoundingClientRect();
+                              const hitX = e.clientX - rect.left;
+                              pendingHoverRef.current = { eventId: ev.id, timelineId: tl.id, hitX };
+                              pendingTimeoutRef.current = setTimeout(() => {
+                                const p = pendingHoverRef.current;
+                                if (p) {
+                                  setHovered(p);
+                                  tooltipOwnerRef.current = { eventId: p.eventId, timelineId: p.timelineId };
+                                  pendingHoverRef.current = null;
+                                  pendingTimeoutRef.current = null;
+                                }
+                              }, 400);
+                              return;
+                            }
+                            if (pendingTimeoutRef.current) {
+                              clearTimeout(pendingTimeoutRef.current);
+                              pendingTimeoutRef.current = null;
+                              pendingHoverRef.current = null;
+                            }
                             if (hoverTimeoutRef.current) {
                               clearTimeout(hoverTimeoutRef.current);
                               hoverTimeoutRef.current = null;
@@ -556,10 +617,17 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                             const rect = containerRef.current!.getBoundingClientRect();
                             const hitX = e.clientX - rect.left;
                             setHovered({ eventId: ev.id, timelineId: tl.id, hitX });
+                            tooltipOwnerRef.current = { eventId: ev.id, timelineId: tl.id };
                           }}
                           onMouseLeave={() => {
+                            if (pendingTimeoutRef.current) {
+                              clearTimeout(pendingTimeoutRef.current);
+                              pendingTimeoutRef.current = null;
+                            }
+                            pendingHoverRef.current = null;
                             hoverTimeoutRef.current = setTimeout(() => {
                               setHovered(null);
+                              tooltipOwnerRef.current = null;
                             }, 150);
                           }}
                           onPointerDown={(e) => {
@@ -765,11 +833,23 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                     clearTimeout(hoverTimeoutRef.current);
                     hoverTimeoutRef.current = null;
                   }
+                  if (pendingTimeoutRef.current) {
+                    clearTimeout(pendingTimeoutRef.current);
+                    pendingTimeoutRef.current = null;
+                  }
+                  pendingHoverRef.current = null;
                   setHovered({ eventId: ev.id, timelineId: active.timelineId, hitX: active.hitX });
+                  tooltipOwnerRef.current = { eventId: ev.id, timelineId: active.timelineId };
                 }}
                 onMouseLeave={() => {
+                  if (pendingTimeoutRef.current) {
+                    clearTimeout(pendingTimeoutRef.current);
+                    pendingTimeoutRef.current = null;
+                  }
+                  pendingHoverRef.current = null;
                   hoverTimeoutRef.current = setTimeout(() => {
                     setHovered(null);
+                    tooltipOwnerRef.current = null;
                   }, 150);
                 }}
                 onClick={(e) => {
@@ -905,11 +985,23 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                       clearTimeout(hoverTimeoutRef.current);
                       hoverTimeoutRef.current = null;
                     }
+                    if (pendingTimeoutRef.current) {
+                      clearTimeout(pendingTimeoutRef.current);
+                      pendingTimeoutRef.current = null;
+                    }
+                    pendingHoverRef.current = null;
                     setHovered({ eventId: ev.id, timelineId: active.timelineId, hitX: active.hitX });
+                    tooltipOwnerRef.current = { eventId: ev.id, timelineId: active.timelineId };
                   }}
                   onMouseLeave={() => {
+                    if (pendingTimeoutRef.current) {
+                      clearTimeout(pendingTimeoutRef.current);
+                      pendingTimeoutRef.current = null;
+                    }
+                    pendingHoverRef.current = null;
                     hoverTimeoutRef.current = setTimeout(() => {
                       setHovered(null);
+                      tooltipOwnerRef.current = null;
                     }, 150);
                   }}
                   style={{
