@@ -390,26 +390,6 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                   stroke="#cbd5e1"
                 />
               )}
-              {tl.iconUrl ? (
-                <image
-                  href={tl.iconUrl}
-                  x={4}
-                  y={yMid - 40}
-                  width={80}
-                  height={80}
-                  preserveAspectRatio="xMidYMid meet"
-                />
-              ) : null}
-              <text
-                x={8}
-                y={yMid + (tl.iconUrl ? 50 : 4)}
-                fontSize={14}
-                fontWeight="bold"
-                fill="#0f172a"
-                opacity={0.5}
-              >
-                {tl.name}
-              </text>
               <line
                 x1={padding.left}
                 y1={yMid}
@@ -679,6 +659,28 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
                   </g>
                 );
               })}
+              {tl.iconUrl ? (
+                <image
+                  href={tl.iconUrl}
+                  x={4}
+                  y={yMid - 40}
+                  width={80}
+                  height={80}
+                  preserveAspectRatio="xMidYMid meet"
+                  style={{ pointerEvents: "none" }}
+                />
+              ) : null}
+              <text
+                x={8}
+                y={yMid + (tl.iconUrl ? 50 : 4)}
+                fontSize={14}
+                fontWeight="bold"
+                fill="#0f172a"
+                opacity={0.5}
+                style={{ pointerEvents: "none" }}
+              >
+                {tl.name}
+              </text>
             </g>
           );
         })}
