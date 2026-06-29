@@ -746,42 +746,8 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
             return acc;
           }, new Map());
 
-          const keepHovered = () => {
-            if (hoverTimeoutRef.current) {
-              clearTimeout(hoverTimeoutRef.current);
-              hoverTimeoutRef.current = null;
-            }
-            setHovered({ eventId: ev.id, timelineId: active.timelineId, hitX: active.hitX });
-          };
-          const startLeaveTimeout = () => {
-            hoverTimeoutRef.current = setTimeout(() => {
-              setHovered(null);
-            }, 150);
-          };
           return (
             <>
-              {/* Hover bridge — connects event hit-area to tooltip */}
-              <rect
-                x={lineX - 30}
-                y={yMid + 20}
-                width={60}
-                height={tooltipY + tooltipH - yMid - 20}
-                fill="transparent"
-                onMouseEnter={keepHovered}
-                onMouseLeave={startLeaveTimeout}
-              />
-              {/* Bridge between main tooltip and deps tooltip */}
-              {hasDeps && (
-                <rect
-                  x={tooltipX + tooltipW}
-                  y={tooltipY}
-                  width={depTooltipX - (tooltipX + tooltipW)}
-                  height={tooltipH}
-                  fill="transparent"
-                  onMouseEnter={keepHovered}
-                  onMouseLeave={startLeaveTimeout}
-                />
-              )}
               {/* Connecting line */}
               <line
                 x1={lineX} y1={lineY1}
@@ -794,8 +760,18 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
             <foreignObject x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH}>
               <div
                 className="tooltip-enter"
-                onMouseEnter={keepHovered}
-                onMouseLeave={startLeaveTimeout}
+                onMouseEnter={() => {
+                  if (hoverTimeoutRef.current) {
+                    clearTimeout(hoverTimeoutRef.current);
+                    hoverTimeoutRef.current = null;
+                  }
+                  setHovered({ eventId: ev.id, timelineId: active.timelineId, hitX: active.hitX });
+                }}
+                onMouseLeave={() => {
+                  hoverTimeoutRef.current = setTimeout(() => {
+                    setHovered(null);
+                  }, 150);
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onEventClick(ev.id);
@@ -924,8 +900,18 @@ export function TimelineCanvas({ tagFilterIds, tagFilterMode, textSearchQuery, t
               <foreignObject x={depTooltipX} y={tooltipY} width={depTooltipW} height={tooltipH}>
                 <div
                   className="tooltip-enter"
-                  onMouseEnter={keepHovered}
-                  onMouseLeave={startLeaveTimeout}
+                  onMouseEnter={() => {
+                    if (hoverTimeoutRef.current) {
+                      clearTimeout(hoverTimeoutRef.current);
+                      hoverTimeoutRef.current = null;
+                    }
+                    setHovered({ eventId: ev.id, timelineId: active.timelineId, hitX: active.hitX });
+                  }}
+                  onMouseLeave={() => {
+                    hoverTimeoutRef.current = setTimeout(() => {
+                      setHovered(null);
+                    }, 150);
+                  }}
                   style={{
                     background: "white",
                     border: "1px solid #d1d5db",
