@@ -6,7 +6,7 @@ import { TooltipButton } from "@/components/TooltipButton";
 import { api } from "@/api/client";
 import type { CreateUserRequest } from "@timeline/shared";
 
-type Tab = "users" | "data-areas" | "smtp";
+type Tab = "users" | "data-areas" | "smtp" | "ai";
 
 function Checkbox({
   checked,
@@ -642,7 +642,7 @@ function SmtpTab() {
 
   const settings = data?.settings ?? {};
 
-  const [form, setForm] = useState({ SMTP_HOST: "", SMTP_PORT: "", SMTP_USER: "", SMTP_PASS: "", DEFAULT_AI_QUOTA: "", AI_SYSTEM_PROMPT: "", AI_USER_PROMPT_TEMPLATE: "" });
+  const [form, setForm] = useState({ SMTP_HOST: "", SMTP_PORT: "", SMTP_USER: "", SMTP_PASS: "" });
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
@@ -654,9 +654,6 @@ function SmtpTab() {
         SMTP_PORT: typeof s.SMTP_PORT === "string" ? s.SMTP_PORT : "",
         SMTP_USER: typeof s.SMTP_USER === "string" ? s.SMTP_USER : "",
         SMTP_PASS: "",
-        DEFAULT_AI_QUOTA: typeof s.DEFAULT_AI_QUOTA === "string" ? s.DEFAULT_AI_QUOTA : "10",
-        AI_SYSTEM_PROMPT: typeof s.AI_SYSTEM_PROMPT === "string" ? s.AI_SYSTEM_PROMPT : "",
-        AI_USER_PROMPT_TEMPLATE: typeof s.AI_USER_PROMPT_TEMPLATE === "string" ? s.AI_USER_PROMPT_TEMPLATE : "",
       });
     }
   }, [data]);
@@ -670,9 +667,6 @@ function SmtpTab() {
         SMTP_PORT: form.SMTP_PORT || null,
         SMTP_USER: form.SMTP_USER || null,
         SMTP_PASS: form.SMTP_PASS || null,
-        DEFAULT_AI_QUOTA: form.DEFAULT_AI_QUOTA || null,
-        AI_SYSTEM_PROMPT: form.AI_SYSTEM_PROMPT || null,
-        AI_USER_PROMPT_TEMPLATE: form.AI_USER_PROMPT_TEMPLATE || null,
       });
       setSaved(true);
       qc.invalidateQueries({ queryKey: ["admin", "settings"] });
@@ -740,8 +734,66 @@ function SmtpTab() {
         />
       </label>
 
-      <hr className="border-slate-200" />
-      <p className="text-xs font-medium text-slate-500">AI-справка (YandexGPT)</p>
+      <TooltipButton
+        label="Сохранить настройки"
+        onClick={handleSave}
+        className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+      >
+        <Save size={16} className="mr-1 inline" /> Сохранить
+      </TooltipButton>
+    </div>
+  );
+}
+
+function AiTab() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["admin", "settings"],
+    queryFn: () => api.admin.settings.get(),
+  });
+
+  const [form, setForm] = useState({ DEFAULT_AI_QUOTA: "", AI_SYSTEM_PROMPT: "", AI_USER_PROMPT_TEMPLATE: "" });
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (data?.settings) {
+      const s = data.settings;
+      setForm({
+        DEFAULT_AI_QUOTA: typeof s.DEFAULT_AI_QUOTA === "string" ? s.DEFAULT_AI_QUOTA : "10",
+        AI_SYSTEM_PROMPT: typeof s.AI_SYSTEM_PROMPT === "string" ? s.AI_SYSTEM_PROMPT : "",
+        AI_USER_PROMPT_TEMPLATE: typeof s.AI_USER_PROMPT_TEMPLATE === "string" ? s.AI_USER_PROMPT_TEMPLATE : "",
+      });
+    }
+  }, [data]);
+
+  const handleSave = async () => {
+    setError("");
+    setSaved(false);
+    try {
+      await api.admin.settings.put({
+        DEFAULT_AI_QUOTA: form.DEFAULT_AI_QUOTA || null,
+        AI_SYSTEM_PROMPT: form.AI_SYSTEM_PROMPT || null,
+        AI_USER_PROMPT_TEMPLATE: form.AI_USER_PROMPT_TEMPLATE || null,
+      });
+      setSaved(true);
+      qc.invalidateQueries({ queryKey: ["admin", "settings"] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка сохранения");
+    }
+  };
+
+  if (isLoading) return <div className="p-4 text-slate-400">Загрузка...</div>;
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="rounded bg-red-50 p-2 text-xs text-red-600">{error}</div>
+      )}
+
+      {saved && (
+        <div className="rounded bg-green-50 p-2 text-xs text-green-700">Настройки сохранены</div>
+      )}
 
       <label className="block text-sm">
         Квота AI по умолчанию для новых пользователей
@@ -759,17 +811,17 @@ function SmtpTab() {
         System prompt (AI)
         <textarea
           className="mt-1 w-full rounded border px-2 py-1 text-xs"
-          rows={3}
+          rows={10}
           value={form.AI_SYSTEM_PROMPT}
           onChange={(e) => setForm({ ...form, AI_SYSTEM_PROMPT: e.target.value })}
         />
       </label>
 
       <label className="block text-sm">
-        Шаблон промпта пользователя (используйте {'{eventName}'} как placeholder)
+        Шаблон промпта пользователя (плейсхолдеры: {'{eventName}'}, {'{startDate}'}, {'{endDate}'}, {'{notes}'}, {'{availableTags}'})
         <textarea
           className="mt-1 w-full rounded border px-2 py-1 text-xs"
-          rows={2}
+          rows={10}
           value={form.AI_USER_PROMPT_TEMPLATE}
           onChange={(e) => setForm({ ...form, AI_USER_PROMPT_TEMPLATE: e.target.value })}
         />
@@ -794,6 +846,7 @@ export function AdminPage() {
     { key: "users", label: "Пользователи" },
     { key: "data-areas", label: "Области данных" },
     { key: "smtp", label: "SMTP / Почта" },
+    { key: "ai", label: "AI-помощник" },
   ];
 
   return (
@@ -826,7 +879,7 @@ export function AdminPage() {
         </div>
 
         <div className="rounded-b-lg bg-white p-4 shadow-sm">
-          {tab === "users" ? <UsersTab /> : tab === "data-areas" ? <DataAreasTab /> : <SmtpTab />}
+          {tab === "users" ? <UsersTab /> : tab === "data-areas" ? <DataAreasTab /> : tab === "smtp" ? <SmtpTab /> : <AiTab />}
         </div>
       </div>
     </div>

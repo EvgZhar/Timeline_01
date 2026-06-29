@@ -178,9 +178,41 @@ export function EventDetailPanel({ eventId }: EventDetailPanelProps) {
   });
 
   const aiSummaryMut = useMutation({
-    mutationFn: () => api.events.aiSummary(eventId),
+    mutationFn: () => api.events.aiSummary(eventId, {
+      notes: notes || undefined,
+      startDate: startDate ? parseDisplay(startDate) : undefined,
+      endDate: endDate ? parseDisplay(endDate) : undefined,
+    }),
     onSuccess: (data) => {
-      setNotes(data.text);
+      const trimmed = notes.trim();
+      if (trimmed.length > 100) {
+        setNotes(notes.trimEnd() + "\n\n---\n\n" + data.text);
+      } else {
+        setNotes(data.text);
+      }
+
+      const changes: string[] = [];
+      if (data.startDate) {
+        const formatted = formatDisplay(data.startDate);
+        if (formatted !== startDate) {
+          changes.push(`Дата начала: ${startDate} → ${formatted}`);
+          setStartDate(formatted);
+        }
+      }
+      if (data.endDate) {
+        const formatted = formatDisplay(data.endDate);
+        if (formatted !== endDate) {
+          changes.push(`Дата окончания: ${endDate || '—'} → ${formatted}`);
+          setEndDate(formatted);
+        }
+      }
+      if (changes.length > 0) {
+        alert("Изменены даты:\n" + changes.join("\n"));
+      }
+
+      if (data.tagIds && data.tagIds.length > 0) {
+        setTagIds((prev) => [...new Set([...prev, ...data.tagIds!])]);
+      }
     },
     onError: (err: Error) => {
       alert(err.message);

@@ -12,7 +12,7 @@ const DEFAULTS: Record<string, { value: string; isSecret: boolean }> = {
     isSecret: false,
   },
   AI_USER_PROMPT_TEMPLATE: {
-    value: 'Напиши краткую историческую справку о событии "{eventName}".',
+    value: 'Напиши краткую историческую справку о событии "{eventName}".\n\nДата начала: {startDate}\nДата окончания: {endDate}\n\nТекущее описание:\n{notes}\n\nДоступные теги: {availableTags}\n\nВыбери из списка доступных тегов только те, которые подходят к событию.\nВерни ответ строго в формате JSON:\n{\n  "startDate": "YYYY-MM-DD",\n  "endDate": "YYYY-MM-DD или null",\n  "notes": "Текст исторической справки",\n  "tags": ["тег1", "тег2"]\n}\nНе добавляй пояснений, только JSON.',
     isSecret: false,
   },
 };

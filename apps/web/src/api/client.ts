@@ -174,8 +174,11 @@ export const api = {
       }),
     removeDependency: (eventId: number, depEventId: number) =>
       request<void>(`/api/events/${eventId}/dependencies/${depEventId}`, { method: "DELETE" }),
-    aiSummary: (eventId: number) =>
-      request<{ text: string }>(`/api/events/${eventId}/ai-summary`, { method: "POST" }),
+    aiSummary: (eventId: number, body?: { notes?: string; startDate?: string; endDate?: string }) =>
+      request<{ text: string; startDate?: string; endDate?: string; tagIds?: number[] }>(
+        `/api/events/${eventId}/ai-summary`,
+        { method: "POST", body: body ? JSON.stringify(body) : undefined },
+      ),
   },
   tags: {
     list: (q?: string) =>

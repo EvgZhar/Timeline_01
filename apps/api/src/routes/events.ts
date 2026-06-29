@@ -7,6 +7,7 @@ import * as svc from "../services/eventsService.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { checkPermission, getCurrentDataAreaId, getAllowedDataAreaIds } from "../services/permissionService.js";
 import { generateEventSummary } from "../services/aiService.js";
+import * as tagsService from "../services/tagsService.js";
 
 export const eventsRouter = Router();
 
@@ -197,6 +198,12 @@ eventsRouter.post("/:id/ai-summary", authenticate, async (req, res, next) => {
     const eventId = Number(req.params.id);
     const userId = req.user!.userId;
 
+    const { notes: rawNotes, startDate, endDate } = req.body as {
+      notes?: string;
+      startDate?: string;
+      endDate?: string;
+    };
+
     const [existing] = await db
       .select({
         id: eventTable.id,
@@ -240,14 +247,34 @@ eventsRouter.post("/:id/ai-summary", authenticate, async (req, res, next) => {
       return;
     }
 
-    const result = await generateEventSummary(existing.name);
+    const allowedIds = await getAllowedDataAreaIds(userId, "canRead");
+    const allTags = await tagsService.listTags(undefined, allowedIds);
+
+    const eventTagRows = await db
+      .select({ tagId: tagEventLink.tagId })
+      .from(tagEventLink)
+      .where(eq(tagEventLink.eventId, eventId));
+    const eventTagIds = new Set(eventTagRows.map((r) => r.tagId));
+
+    const availableTags = allTags
+      .filter((t) => !eventTagIds.has(t.id))
+      .map((t) => ({ id: t.id, name: t.name }));
+
+    const options = {
+      startDate,
+      endDate,
+      notes: rawNotes,
+      availableTags,
+    };
+
+    const result = await generateEventSummary(existing.name, options);
 
     await db
       .update(sysUserTable)
       .set({ aiQuotaUsed: sql`${sysUserTable.aiQuotaUsed} + 1` })
       .where(eq(sysUserTable.id, userId));
 
-    res.json({ text: result.text });
+    res.json(result);
   } catch (e) {
     next(e);
   }
