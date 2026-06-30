@@ -12,6 +12,7 @@ import type { TagDto } from "@timeline/shared";
 
 interface EventDetailPanelProps {
   eventId: number;
+  onNavigateToEvent?: (id: number) => void;
 }
 
 function hslToInt(h: number, s: number, l: number): number {
@@ -56,7 +57,7 @@ function downloadMd(notes: string, name: string) {
   URL.revokeObjectURL(url);
 }
 
-export function EventDetailPanel({ eventId }: EventDetailPanelProps) {
+export function EventDetailPanel({ eventId, onNavigateToEvent }: EventDetailPanelProps) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const userId = user?.id;
@@ -445,7 +446,13 @@ export function EventDetailPanel({ eventId }: EventDetailPanelProps) {
                 {event.dependencies.map((dep) => (
                   <div key={dep.depEventId} className="flex items-center gap-2 rounded border border-slate-200 px-2 py-1.5">
                     <Link2 size={14} className="shrink-0 text-slate-400" />
-                    <span className="min-w-0 flex-1 truncate text-sm">{dep.depEventName ?? dep.depEventId}</span>
+                    <button
+                      type="button"
+                      className="min-w-0 flex-1 truncate text-left text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                      onClick={(e) => { e.stopPropagation(); onNavigateToEvent?.(dep.depEventId); }}
+                    >
+                      {dep.depEventName ?? dep.depEventId}
+                    </button>
                     <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
                       {dependencyTypeLabel(dep.dependencyType, true)}
                     </span>

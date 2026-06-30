@@ -433,6 +433,7 @@ export function TimelineApp() {
               <EventDetailPanel
                 key={selectedEventId}
                 eventId={selectedEventId}
+                onNavigateToEvent={(id) => setSelectedEventId(id)}
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
